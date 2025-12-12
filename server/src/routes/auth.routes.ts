@@ -123,7 +123,7 @@ authRoutes.post(
   zValidator(
     "json",
     z.object({
-      provider: z.enum(["google", "apple"]),
+      provider: z.enum(["google"]),
       token: z.string().min(8),
       accessToken: z.string().optional(),
     })
