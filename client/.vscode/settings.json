@@ -1,0 +1,20 @@
+{
+  "css.validate": false,
+  "scss.validate": false,
+  "less.validate": false,
+
+  "css.lint.unknownAtRules": "ignore",
+  "scss.lint.unknownAtRules": "ignore",
+  "less.lint.unknownAtRules": "ignore",
+
+  "tailwindCSS.experimental.configFile": "./tailwind.config.ts",
+
+  "tailwindCSS.includeLanguages": {
+    "css": "css",
+    "postcss": "css",
+    "javascript": "javascript",
+    "typescript": "typescript",
+    "javascriptreact": "html",
+    "typescriptreact": "html"
+  }
+}
