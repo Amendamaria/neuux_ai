@@ -1,29 +1,35 @@
-// Example Hono server setup (your /server folder)
-// This is what runs on your backend
+import { Hono } from "hono";
+import { cors } from "hono/cors";
+import { csrf } from "hono/csrf";
+import { logger } from "hono/logger";
+import { prettyJSON } from "hono/pretty-json";
+import { secureHeaders } from "hono/secure-headers";
+import { timing } from "hono/timing";
+import errorHandler from "./middlewares/error.middleware";
+import authRoutes from "./routes/auth.routes";
+import { env } from "./config/env";
 
-import { Hono } from "hono"
+const app = new Hono();
 
-const app = new Hono()
+app.use("*", logger());
+app.use("*", cors({ origin: env.CORS_ORIGIN }));
+app.use("*", csrf());
+app.use("*", prettyJSON());
+app.use("*", secureHeaders());
+app.use("*", timing());
 
-// Health check endpoint
+app.get("/", (c) => {
+  return c.text("NeuUX-AI Server is running");
+});
 app.get("/health", (c) => {
-  return c.json({ status: "ok" })
-})
+  return c.json({ status: "Running", timestamp: new Date().toLocaleString() });
+});
 
-// Chat endpoint - receives messages from Next.js frontend
-app.post("/api/chat", async (c) => {
-  const { message } = await c.req.json()
+app.route("/auth", authRoutes);
 
-  // TODO: Add your AI logic here
-  // This is where you'd process the message with an AI model
-  // For now, returning a mock response
+app.notFound((c) => c.text("404 Not Found", 404));
+app.onError(errorHandler);
 
-  const mockResponse = `You said: "${message}". This is a mock response from your Hono backend.`
+export type AppType = typeof app;
 
-  return c.json({
-    response: mockResponse,
-    id: Math.random().toString(36).substr(2, 9),
-  })
-})
-
-export default app
+export default app;
