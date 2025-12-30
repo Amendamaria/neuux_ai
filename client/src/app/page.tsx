@@ -37,7 +37,7 @@ export default function Home() {
             </Button>
           </div>
 
-          <div className="border border-teal-600/30 rounded-2xl p-8 bg-gradient-to-b from-teal-900/20 to-transparent mt-12">
+          <div className="border border-foreground rounded-2xl p-8 bg-gradient-to-b from-teal-900/20 to-transparent mt-12">
             <div className="space-y-6">
               <div className="flex gap-3">
                 <div className="w-8 h-8 rounded-full shrink-0 flex items-center justify-center text-xs font-bold">

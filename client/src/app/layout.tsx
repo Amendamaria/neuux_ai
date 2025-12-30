@@ -30,14 +30,23 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${monteserrat.variable} ${poppins.variable} font-sans antialiased text-foreground`}>
-        <div className="fixed inset-0 -z-10 overflow-hidden bg-neuuxai-base">
-          <div className="bg-neuuxai-glow top-[-30%] left-[-20%]" />
-          <div className="bg-neuuxai-glow bottom-[-35%] right-[-25%] opacity-30" />
-          <div className="bg-neuuxai-vignette" />
+      <body
+        className={`${monteserrat.variable} ${poppins.variable} font-sans antialiased text-foreground`}
+      >
+        <div className="relative min-h-screen overflow-hidden">
+          <div
+            className="absolute inset-0 pointer-events-none -z-10"
+            style={{
+              background:
+                "radial-gradient(ellipse 150% 100% at 50% 100%, rgba(0, 74, 81, 0.8) 0%, rgba(0, 74, 81, 0.4) 30%, rgba(0, 74, 81, 0.1) 70%, transparent 100%)",
+              filter: "blur(500px)",
+            }}
+          />
+
+          {children}
         </div>
-        {children}
       </body>
+
     </html>
   )
 }

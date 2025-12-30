@@ -2,6 +2,7 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { User } from "lucide-react"
 import Link from "next/link"
+import Image from "next/image"
 
 interface NavbarProps {
   showLogin: boolean
@@ -19,13 +20,18 @@ export default function Navbar({ showLogin }: NavbarProps) {
     <nav className="border-b border-teal-600/20 backdrop-blur-sm">
       <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
         <Button
-          variant={"link"}
+          variant="link"
           onClick={() => router.push("/")}
           className="flex items-center gap-2 hover:no-underline transition"
         >
-          <span className="text-2xl font-bold text-foreground">
-            Neu<span className="text-neuuxai">UX</span><span className="text-xs text-gray-400">ai</span>
-          </span>
+          <Image
+            src="/logo.png"
+            alt="NeuUXAI Logo"
+            width={40}
+            height={40}
+            className="w-full h-full object-contain"
+            priority
+          />
         </Button>
         <div className="hidden md:flex items-center gap-8">
           <Link href="/" className="hover:underline transition">
