@@ -37,7 +37,7 @@ export default function SignupPage() {
   }
 
   return (
-    <main className="min-h-screen bg-neutral-950">
+    <main className="min-h-screen">
       <Navbar showLogin={false} />
 
       <div className="min-h-screen flex items-center justify-center px-4">
