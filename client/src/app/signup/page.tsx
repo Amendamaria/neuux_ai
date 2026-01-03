@@ -37,20 +37,17 @@ export default function SignupPage() {
   }
 
   return (
-    <main className="min-h-screen bg-neutral-950">
+    <main className="min-h-screen">
       <Navbar showLogin={false} />
 
       <div className="min-h-screen flex items-center justify-center px-4">
         <div className="w-full max-w-md border border-teal-600/40 rounded-3xl p-8 bg-gradient-to-b from-teal-900/30 to-transparent space-y-8">
-          {/* Heading */}
           <div className="text-center space-y-2">
             <h1 className="text-3xl font-bold text-white">Welcome To NeuUX AI!</h1>
             <p className="text-gray-400">Create your account.</p>
           </div>
 
-          {/* Form */}
           <form onSubmit={handleSignup} className="space-y-4">
-            {/* Full Name & Email Row */}
             <div className="grid grid-cols-2 gap-4">
               <input
                 type="text"
@@ -72,7 +69,6 @@ export default function SignupPage() {
               />
             </div>
 
-            {/* Password Input */}
             <input
               type="password"
               name="password"
@@ -83,7 +79,6 @@ export default function SignupPage() {
               required
             />
 
-            {/* Confirm Password Input */}
             <input
               type="password"
               name="confirmPassword"
@@ -94,16 +89,15 @@ export default function SignupPage() {
               required
             />
 
-            {/* Submit Button */}
             <Button
+              variant={"default"}
               type="submit"
-              className="w-full bg-teal-600 hover:bg-teal-700 text-white rounded-full py-3 font-semibold"
+              className="w-full font-semibold"
             >
               SignUp
             </Button>
           </form>
 
-          {/* Login Link */}
           <div className="text-center">
             <p className="text-gray-400">
               Do you have and account?{" "}

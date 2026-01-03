@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import ChatSidebar from "@/components/chat-sidebar"
-import ChatWindow from "@/components/chat-window"
+import ChatSidebar from "@/app/chat/_components/chat-sidebar"
+import ChatWindow from "@/app/chat/_components/chat-window"
 
 interface User {
   email: string
@@ -36,7 +36,7 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="flex h-screen bg-neutral-950">
+    <div className="flex h-screen">
       <ChatSidebar user={user} />
       <ChatWindow user={user} />
     </div>

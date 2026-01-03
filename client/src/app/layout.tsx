@@ -1,34 +1,26 @@
 import type React from "react"
 import type { Metadata } from "next"
-import { Geist, Geist_Mono } from "next/font/google"
-import { Analytics } from "@vercel/analytics/next"
+import { Montserrat, Poppins } from "next/font/google"
 import "./globals.css"
 
-const _geist = Geist({ subsets: ["latin"] })
-const _geistMono = Geist_Mono({ subsets: ["latin"] })
+const monteserrat = Montserrat({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-display",
+  display: "swap",
+});
+
+const poppins = Poppins({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-sans",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "NeuUX AI - Design Smarter. Plan Faster.",
   description:
     "Your AI partner that turns your ideas into user flows, personas, and journey maps through effortless conversations.",
-  generator: "v0.app",
-  icons: {
-    icon: [
-      {
-        url: "/icon-light-32x32.png",
-        media: "(prefers-color-scheme: light)",
-      },
-      {
-        url: "/icon-dark-32x32.png",
-        media: "(prefers-color-scheme: dark)",
-      },
-      {
-        url: "/icon.svg",
-        type: "image/svg+xml",
-      },
-    ],
-    apple: "/apple-icon.png",
-  },
 }
 
 export default function RootLayout({
@@ -38,10 +30,23 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`font-sans antialiased bg-neutral-950 text-white`}>
-        {children}
-        <Analytics />
+      <body
+        className={`${monteserrat.variable} ${poppins.variable} font-sans antialiased text-foreground`}
+      >
+        <div className="relative min-h-screen overflow-hidden">
+          <div
+            className="absolute inset-0 pointer-events-none -z-10"
+            style={{
+              background:
+                "radial-gradient(ellipse 150% 100% at 50% 100%, rgba(0, 74, 81, 0.8) 0%, rgba(0, 74, 81, 0.4) 30%, rgba(0, 74, 81, 0.1) 70%, transparent 100%)",
+              filter: "blur(500px)",
+            }}
+          />
+
+          {children}
+        </div>
       </body>
+
     </html>
   )
 }

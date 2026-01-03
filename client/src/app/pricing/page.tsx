@@ -36,7 +36,7 @@ export default function PricingPage() {
   ]
 
   return (
-    <main className="min-h-screen bg-neutral-950">
+    <main className="min-h-screen">
       <Navbar showLogin={true} />
 
       <div className="max-w-6xl mx-auto px-4 py-20">

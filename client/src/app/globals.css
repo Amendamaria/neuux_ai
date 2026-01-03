@@ -1,14 +1,8 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-@custom-variant dark (&:is(.dark *));
-
-/* =======================
-   ROOT THEME (HEX COLORS)
-   ======================= */
-
 :root {
-  --background: #141414;
+  --background: #181818;
   --foreground: #fafafa;
 
   --card: #1f1f1f;
@@ -17,7 +11,7 @@
   --popover: #1f1f1f;
   --popover-foreground: #fafafa;
 
-  --primary: #3b82f6; /* blue-500 */
+  --primary: #004A51;
   --primary-foreground: #ffffff;
 
   --secondary: #2a2a2a;
@@ -26,7 +20,7 @@
   --muted: #2a2a2a;
   --muted-foreground: #b3b3b3;
 
-  --accent: #3b82f6;
+  --accent: #004A51;
   --accent-foreground: #ffffff;
 
   --destructive: #242424;
@@ -34,18 +28,12 @@
 
   --border: #2a2a2a;
   --input: #2a2a2a;
-  --ring: #3b82f6;
+  --ring: #004A51;
 
-  --chart-1: #6366f1;
-  --chart-2: #22c55e;
-  --chart-3: #facc15;
-  --chart-4: #a855f7;
-  --chart-5: #f97316;
-
-  --sidebar: #1a1a1a;
+  --sidebar: #0B3733;
   --sidebar-foreground: #fafafa;
 
-  --sidebar-primary: #6366f1;
+  --sidebar-primary: #004A51;
   --sidebar-primary-foreground: #ffffff;
 
   --sidebar-accent: #2a2a2a;
@@ -57,66 +45,8 @@
   --radius: 0.625rem;
 }
 
-/* =======================
-   DARK MODE (same palette)
-   ======================= */
-
-.dark {
-  --background: #141414;
-  --foreground: #fafafa;
-
-  --card: #1f1f1f;
-  --card-foreground: #fafafa;
-
-  --popover: #1f1f1f;
-  --popover-foreground: #fafafa;
-
-  --primary: #3b82f6;
-  --primary-foreground: #ffffff;
-
-  --secondary: #2a2a2a;
-  --secondary-foreground: #fafafa;
-
-  --muted: #2a2a2a;
-  --muted-foreground: #b3b3b3;
-
-  --accent: #3b82f6;
-  --accent-foreground: #ffffff;
-
-  --destructive: #242424;
-  --destructive-foreground: #ffffff;
-
-  --border: #2a2a2a;
-  --input: #2a2a2a;
-  --ring: #3b82f6;
-
-  --chart-1: #6366f1;
-  --chart-2: #22c55e;
-  --chart-3: #facc15;
-  --chart-4: #a855f7;
-  --chart-5: #f97316;
-
-  --sidebar: #1a1a1a;
-  --sidebar-foreground: #fafafa;
-
-  --sidebar-primary: #6366f1;
-  --sidebar-primary-foreground: #ffffff;
-
-  --sidebar-accent: #2a2a2a;
-  --sidebar-accent-foreground: #fafafa;
-
-  --sidebar-border: #2a2a2a;
-  --sidebar-ring: #737373;
-}
-
-/* =======================
-   THEME TOKENS
-   ======================= */
 
 @theme inline {
-  --font-sans: "Geist", "Geist Fallback";
-  --font-mono: "Geist Mono", "Geist Mono Fallback";
-
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -172,4 +102,55 @@
   .delay-200 {
     animation-delay: 200ms;
   }
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-display);
+}
+
+.text-neuuxai {
+  background: linear-gradient(#00EAFF, #004A51);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.bg-neuuxai-base {
+  background:
+    radial-gradient(circle at top, rgba(0, 74, 81, 0.25), transparent 55%),
+    linear-gradient(180deg, #0b1111 0%, #060909 100%);
+}
+
+.bg-neuuxai-glow {
+  position: absolute;
+  width: 900px;
+  height: 900px;
+  background: #004A51;
+  border-radius: 50%;
+  filter: blur(180px);
+  opacity: 0.25;
+  pointer-events: none;
+}
+
+.bg-neuuxai-vignette {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at center,
+      rgba(0, 0, 0, 0) 40%,
+      rgba(0, 0, 0, 0.85) 100%);
+  pointer-events: none;
+}
+
+* {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+*::-webkit-scrollbar {
+  display: none;
 }
