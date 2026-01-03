@@ -1,4 +1,5 @@
 "use client"
+import { SpotLightItem, Spotlight } from '@/components/ui/spotlight'
 
 import { useRouter } from "next/navigation"
 import Image from "next/image" 
@@ -17,8 +18,8 @@ export default function Home() {
       {/* ======================
           HERO SECTION
          ====================== */}
-      <section className="min-h-screen flex flex-col items-center justify-center px-4">
-        <div className="text-center space-y-8 max-w-3xl">
+      <section className="min-h-screen flex flex-col items-center justify-center px-4 bg-neuuxai-base text-center">
+        <div className="text-center space-y-8 max-w-3xl" >
           <div className="space-y-4">
             <h1 className="text-5xl md:text-6xl font-bold">
               <span className="text-neuuxai">Design</span> <span>Smarter.</span>
@@ -44,10 +45,10 @@ export default function Home() {
           </div>
 
           {/* Demo Chat Card */}
-          <div className="border border-foreground rounded-2xl p-8 bg-gradient-to-b from-teal-900/20 to-transparent mt-12">
+          <div className="border border-foreground rounded-2xl p-8 bg-gradient from-teal-900/20 to-transparent mt-12">
             <div className="space-y-6">
               <div className="flex gap-3">
-                <div className="w-8 h-8 rounded-full shrink-0 flex items-center justify-center text-xs font-bold">
+                <div className="w-8 h-8 shrink-0 flex items-center justify-center text-xs font-bold text-ring bg-popover">
                   UX
                 </div>
                 <div className="bg-neutral-900 rounded-lg p-4 text-left max-w-md">
@@ -89,74 +90,76 @@ export default function Home() {
       {/* ======================
           FEATURES SECTION
          ====================== */}
-    <section id="features" className="py-24 px-4 bg-black scroll-mt-24">
-        <div className="max-w-6xl mx-auto">
-          {/* Heading */}
-          <div className="text-center max-w-2xl mx-auto mb-16">
-            <h2 className="text-4xl font-bold">
-              Built to simplify{" "}
-              <span className="text-neuuxai">UX planning</span>
-            </h2>
-            <p className="text-gray-400 text-lg mt-4">
-              Everything you need to plan better user experiences, faster.
+    <section id="features" className="py-24 px-4 bg-black">
+  <div className="max-w-6xl mx-auto">
+
+    {/* Heading */}
+    <div className="text-center max-w-2xl mx-auto mb-16">
+      <h2 className="text-4xl font-bold">
+        Built to simplify <span className="text-neuuxai">UX planning</span>
+      </h2>
+      <p className="text-gray-400 text-lg mt-4">
+        Everything you need to plan better user experiences, faster.
+      </p>
+    </div>
+
+    {/* Spotlight Grid */}
+    <Spotlight className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      
+      {[
+        {
+          title: "AI-Driven UX Planning",
+          description:
+            "Turn simple ideas into user flows, personas, and journey maps through conversations.",
+        },
+        {
+          title: "Instant UX Insights",
+          description:
+            "Identify usability issues and improvement opportunities in seconds.",
+        },
+        {
+          title: "Structured Design Outputs",
+          description:
+            "Get clear UX documentation that’s easy to understand and use.",
+        },
+        {
+          title: "Beginner Friendly",
+          description:
+            "No prior UX knowledge required. Just explain your idea and start.",
+        },
+        {
+          title: "Faster Planning",
+          description:
+            "Reduce planning time and focus more on building real solutions.",
+        },
+        {
+          title: "Built for Teams & Students",
+          description:
+            "Perfect for students, designers, startups, and product teams.",
+        },
+      ].map((feature, index) => (
+        <SpotLightItem key={index}>
+          <div className="relative h-full rounded-xl border border-teal-600/20 bg-linear-to-b from-neutral-950 to-neutral-900 p-6 transition">
+            <h3 className="text-lg font-semibold mb-2">
+              {feature.title}
+            </h3>
+            <p className="text-sm text-gray-400 leading-relaxed">
+              {feature.description}
             </p>
           </div>
+        </SpotLightItem>
+      ))}
 
-          {/* Features Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-            {[
-              {
-                title: "AI-Driven UX Planning",
-                description:
-                  "Turn simple ideas into user flows, personas, and journey maps through conversations.",
-              },
-              {
-                title: "Instant UX Insights",
-                description:
-                  "Identify usability issues and improvement opportunities in seconds.",
-              },
-              {
-                title: "Structured Design Outputs",
-                description:
-                  "Get clear UX documentation that’s easy to understand and use.",
-              },
-              {
-                title: "Beginner Friendly",
-                description:
-                  "No prior UX knowledge required. Just explain your idea and start.",
-              },
-              {
-                title: "Faster Planning",
-                description:
-                  "Reduce planning time and focus more on building real solutions.",
-              },
-              {
-                title: "Built for Teams & Students",
-                description:
-                  "Perfect for students, designers, startups, and product teams.",
-              },
-            ].map((feature, index) => (
-              <div
-                key={index}
-                className="border border-teal-600/20 rounded-xl p-6 bg-neutral-950 hover:bg-teal-900/10 transition"
-              >
-                <h3 className="text-lg font-semibold mb-2">
-                  {feature.title}
-                </h3>
-                <p className="text-sm text-gray-400 leading-relaxed">
-                  {feature.description}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+    </Spotlight>
+  </div>
+</section>
+
       {/* ======================
     ROADMAP SECTION
    ====================== */}
 <section
   id="how-it-works"
-  className="relative py-32 bg-gradient from-teal-900/20 to-transparent mt-12 overflow-hidden scroll-mt-24"
+  className="relative py-25 bg-neuuxai-overlay overflow-hidden"
 >
   <div className="max-w-7xl mx-auto px-2 grid lg:grid-cols-2 items-start">
 
@@ -229,7 +232,7 @@ export default function Home() {
  {/* ======================
         FOOTER
 ====================== */}
-<footer className="relative bg-neutral-950 pt-24 pb-12 overflow-hidden">
+<footer className="relative bg-background pt-20 pb-12 overflow-hidden">
 
   {/* BIG BACKGROUND BRAND TEXT */}
   <div className="absolute bottom-[-60px] left-1/2 -translate-x-1/2 select-none pointer-events-none">
@@ -241,7 +244,7 @@ export default function Home() {
   <div className="relative max-w-7xl mx-auto px-6">
 
     {/* TOP CTA */}
-    <div className="mb-24 rounded-3xl bg-gradient-to-b from-teal-900/40 to-teal-900/10 border border-teal-600/20 p-12 text-center">
+    <div className="mb-24 rounded-3xl bg-neuuxai-overlay border border-white/25 p-12 text-center">
       <h2 className="text-3xl md:text-4xl font-bold mb-4">
         Design smarter UX with <span className="text-neuuxai">NeuUX AI</span>
       </h2>
@@ -313,10 +316,10 @@ export default function Home() {
           />
           <div className="flex justify-end">
             <button
-              className="w-10 h-10 flex items-center justify-center text-neuuxai hover:scale-105 transition"
+              className="w-20 h-10 flex items-center justify-center text-neuuxai hover:scale-105 transition"
               aria-label="Send message"
             >
-              ➤
+              Send ➤
             </button>
           </div>
         </div>
@@ -331,7 +334,6 @@ export default function Home() {
         <span className="hover:text-white cursor-pointer">Terms</span>
       </div>
     </div>
-
   </div>
 </footer>
 

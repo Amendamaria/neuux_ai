@@ -17,7 +17,7 @@ export default function Navbar({ showLogin }: NavbarProps) {
   }
 
   return (
-    <nav className="border-b border-teal-600/20 backdrop-blur-sm">
+    <nav className="border-b border-teal-600/20 backdrop-blur-sm bg-transparent">
       <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
         <Button
           variant="link"

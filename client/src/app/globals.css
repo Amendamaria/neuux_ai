@@ -2,7 +2,7 @@
 @import "tw-animate-css";
 
 :root {
-  --background: #181818;
+  --background: #000000;
   --foreground: #fafafa;
 
   --card: #1f1f1f;
@@ -11,7 +11,7 @@
   --popover: #1f1f1f;
   --popover-foreground: #fafafa;
 
-  --primary: #004A51;
+  --primary: #0B3733;
   --primary-foreground: #ffffff;
 
   --secondary: #2a2a2a;
@@ -20,7 +20,7 @@
   --muted: #2a2a2a;
   --muted-foreground: #b3b3b3;
 
-  --accent: #004A51;
+  --accent: #0B3733;
   --accent-foreground: #ffffff;
 
   --destructive: #242424;
@@ -28,7 +28,7 @@
 
   --border: #2a2a2a;
   --input: #2a2a2a;
-  --ring: #004A51;
+  --ring: #01CEE1;
 
   --sidebar: #0B3733;
   --sidebar-foreground: #fafafa;
@@ -122,10 +122,15 @@ h6 {
 
 .bg-neuuxai-base {
   background:
-    radial-gradient(circle at top, rgba(0, 74, 81, 0.25), transparent 55%),
+    radial-gradient(circle at bottom, rgba(0, 74, 81, 75%), transparent 75%),
     linear-gradient(180deg, #0b1111 0%, #060909 100%);
 }
 
+.bg-neuuxai-overlay {
+  background:
+    radial-gradient(circle at top, rgba(0, 74, 81, 75%), transparent 75%),
+    linear-gradient(180deg, #0b1111 0%, #060909 100%);
+}
 .bg-neuuxai-glow {
   position: absolute;
   width: 900px;
