@@ -22,28 +22,44 @@ export default function Navbar({ showLogin }: NavbarProps) {
         <Button
           variant="link"
           onClick={() => router.push("/")}
-          className="flex items-center gap-2 hover:no-underline transition"
+          className="flex items-center gap-2"
         >
           <Image
             src="/logo.png"
             alt="NeuUXAI Logo"
-            width={40}
-            height={40}
+            width={110}
+            height={28}
             className="w-full h-full object-contain"
             priority
           />
         </Button>
         <div className="hidden md:flex items-center gap-8">
-          <Link href="/" className="hover:underline transition">
+          <Link href="/" className="">
             Home
           </Link>
-          <Link href="#" className="hover:underline transition">
-            Features
-          </Link>
-          <Link href="#" className="hover:underline transition">
-            How It Works
-          </Link>
-          <Link href="/pricing" className="hover:underline transition">
+          <div className="hidden md:flex items-center gap-8">
+  <button
+    onClick={() =>
+      document.getElementById("features")?.scrollIntoView({ behavior: "smooth" })
+    }
+    className="hover:text-neuuxai transition"
+  >
+    Features
+  </button>
+
+  <button
+    onClick={() =>
+      document
+        .getElementById("how-it-works")
+        ?.scrollIntoView({ behavior: "smooth" })
+    }
+    className="hover:text-neuuxai transition"
+  >
+    How It Works
+  </button>
+</div>
+
+          <Link href="/pricing" className="">
             Pricing
           </Link>
         </div>

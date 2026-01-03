@@ -2,9 +2,9 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
+import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { MessageSquare, Menu, X } from "lucide-react"
-import UserMenu from "@/components/user-menu"
 
 interface User {
   email: string
@@ -30,29 +30,46 @@ export default function ChatSidebar({ user }: ChatSidebarProps) {
     <>
       {/* Logo */}
       <div className="flex items-center justify-between mb-6">
-        <button onClick={() => router.push("/")} className="text-lg font-bold text-white hover:opacity-80 transition">
-          Neu<span className="text-cyan-400">UX</span> <span className="text-xs text-gray-400">ai</span>
+        <button
+          onClick={() => router.push("/")}
+          className="hover:opacity-80 transition"
+        >
+          <Image
+            src="/Logo.svg"
+            alt="NeuUX AI"
+            width={110}
+            height={28}
+            priority
+          />
         </button>
+
         {isMobileOpen && (
           <button onClick={() => setIsMobileOpen(false)} className="md:hidden">
-            <X className="w-6 h-6 text-white" />
+            <X className="w-6 h-6 text-foreground" />
           </button>
         )}
       </div>
 
       {/* New Chat Button */}
-      <Button className="w-full bg-teal-600 hover:bg-teal-700 text-white rounded-full py-2 mb-6">New Chat</Button>
+      <Button className="w-full rounded-full mb-6">
+        New Chat
+      </Button>
 
       {/* Chat History */}
       <div className="space-y-4 flex-1 overflow-y-auto">
-        <p className="text-gray-400 text-sm font-semibold">Chat History</p>
+        <p className="text-muted-foreground text-sm font-semibold">
+          Chat History
+        </p>
+
         <div className="relative">
           <input
             type="text"
             placeholder="Search..."
-            className="w-full bg-transparent border border-teal-600/30 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-teal-600 transition"
+            className="w-full bg-input border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
           />
-          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">🔍</span>
+          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+            🔍
+          </span>
         </div>
 
         {/* History Items */}
@@ -60,17 +77,16 @@ export default function ChatSidebar({ user }: ChatSidebarProps) {
           {chatHistory.map((chat) => (
             <button
               key={chat.id}
-              className="w-full flex items-start gap-3 p-3 rounded-lg hover:bg-teal-900/30 transition text-left group"
+              className="w-full flex items-start gap-3 p-3 rounded-lg hover:bg-muted transition text-left"
             >
-              <MessageSquare className="w-5 h-5 text-gray-400 shrink-0 mt-0.5" />
-              <span className="text-sm text-gray-300 line-clamp-2">{chat.title}</span>
+              <MessageSquare className="w-5 h-5 text-muted-foreground shrink-0 mt-0.5" />
+              <span className="text-sm text-foreground line-clamp-2">
+                {chat.title}
+              </span>
             </button>
           ))}
         </div>
       </div>
-
-      {/* User Menu */}
-      <UserMenu user={user} />
     </>
   )
 
@@ -79,22 +95,25 @@ export default function ChatSidebar({ user }: ChatSidebarProps) {
       {/* Mobile Menu Button */}
       <button
         onClick={() => setIsMobileOpen(!isMobileOpen)}
-        className="md:hidden fixed top-4 left-4 z-50 bg-teal-600 p-2 rounded-lg"
+        className="md:hidden fixed top-4 left-4 z-50 bg-primary text-primary-foreground p-2 rounded-lg"
       >
-        <Menu className="w-6 h-6 text-white" />
+        <Menu className="w-6 h-6" />
       </button>
 
       {/* Desktop Sidebar */}
-      <div className="hidden md:flex w-64 bg-linear-to-b from-teal-950/50 to-neutral-950 border-r border-teal-600/20 flex-col p-6">
+      <div className="hidden md:flex w-64 bg-background border-r border-border flex-col p-6">
         <SidebarContent />
       </div>
 
       {/* Mobile Sidebar */}
       {isMobileOpen && (
-        <div className="md:hidden fixed inset-0 z-40 bg-black/50" onClick={() => setIsMobileOpen(false)}>
+        <div
+          className="md:hidden fixed inset-0 z-40 bg-black/50"
+          onClick={() => setIsMobileOpen(false)}
+        >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="w-64 bg-linear-to-b from-teal-950/50 to-neutral-950 border-r border-teal-600/20 flex flex-col p-6 h-full"
+            className="w-64 bg-background border-r border-border flex flex-col p-6 h-full"
           >
             <SidebarContent />
           </div>
