@@ -20,6 +20,7 @@ export function LoginForm({
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
 
+  // 🔐 Email + Password Login
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     const supabase = createClient();
@@ -32,6 +33,7 @@ export function LoginForm({
         password,
       });
       if (error) throw error;
+
       router.push("/chat");
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : "Login failed");
@@ -40,11 +42,29 @@ export function LoginForm({
     }
   };
 
+  // 🔵 Google Login
+  const handleGoogleLogin = async () => {
+    const supabase = createClient();
+    setIsLoading(true);
+    setError(null);
+
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${window.location.origin}/chat`,
+      },
+    });
+
+    if (error) {
+      setError(error.message);
+      setIsLoading(false);
+    }
+  };
+
   return (
     <main className={cn("min-h-screen", className)} {...props}>
       <div className="min-h-screen flex items-center justify-center px-4">
         <div className="w-full max-w-md border border-teal-600/40 rounded-3xl p-8 bg-gradient-to-b from-teal-900/30 to-transparent space-y-8">
-
           {/* Header */}
           <div className="text-center space-y-2">
             <h1 className="text-3xl font-bold text-white">Ready To Build?</h1>
@@ -104,13 +124,24 @@ export function LoginForm({
             </div>
           </div>
 
-          {/* Google Auth (placeholder) */}
+          {/* Google Auth */}
           <Button
             type="button"
+            onClick={handleGoogleLogin}
+            disabled={isLoading}
             className="w-full bg-transparent border border-teal-600/30 hover:bg-teal-900/20 text-white rounded-full py-3 flex items-center justify-center gap-2"
           >
-            <FcGoogle />
-            Continue with Google
+            {isLoading ? (
+              <>
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                Redirecting...
+              </>
+            ) : (
+              <>
+                <FcGoogle />
+                Continue with Google
+              </>
+            )}
           </Button>
 
           {/* Footer */}

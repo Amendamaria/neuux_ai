@@ -61,7 +61,8 @@ export default function SignUpForm() {
   return (
     <main className="min-h-screen">
       <div className="min-h-screen flex items-center justify-center px-4">
-        <div className="w-full max-w-md border border-teal-600/40 rounded-3xl p-8 bg-gradient-to-b from-teal-900/30 to-transparent space-y-8">
+        <div className="w-full max-w-md border border-teal-600/40 rounded-3xl p-8 bg-linear-to-b
+ from-teal-900/30 to-transparent space-y-8">
 
           <div className="text-center space-y-2">
             <h1 className="text-3xl font-bold text-white">
