@@ -36,7 +36,7 @@ export default function Home() {
                     </div>
 
                     {/* Demo Chat Card */}
-                    <div className="border border-foreground rounded-2xl p-8 bg-gradient-to-b from-teal-900/20 to-transparent mt-12">
+                    <div className="border border-foreground rounded-2xl p-8 bg-linear-to-b from-teal-900/20 to-transparent mt-12">
                         <div className="space-y-6">
                             <div className="flex gap-3">
                                 <div className="w-8 h-8 rounded-full shrink-0 flex items-center justify-center text-xs font-bold">
@@ -162,7 +162,7 @@ export default function Home() {
                     </div>
 
                     {/* RIGHT SIDE – ROADMAP */}
-                    <div className="relative min-h-[600px]">
+                    <div className="relative min-h-150">
 
                         {/* SVG CURVED PATH */}
                         <svg
@@ -184,7 +184,7 @@ export default function Home() {
                         </svg>
 
                         {/* STEP 1 */}
-                        <div className="absolute top-[570px] max-w-sm">
+                        <div className="absolute top-142.5 max-w-sm">
                             <h3 className="text-lg font-semibold mb-2">
                                 Create your account
                             </h3>
@@ -194,7 +194,7 @@ export default function Home() {
                         </div>
 
                         {/* STEP 2 ✅ FIXED */}
-                        <div className="absolute right-[250px] top-[290px] max-w-sm">
+                        <div className="absolute right-62.5 top-72.5 max-w-sm">
                             <h3 className="text-lg font-semibold mb-2">
                                 Describe your idea
                             </h3>
@@ -204,7 +204,7 @@ export default function Home() {
                         </div>
 
                         {/* STEP 3 */}
-                        <div className="absolute right-[75px] top-\[80px] max-w-sm">
+                        <div className="absolute right-18.75 top-\[80px] max-w-sm">
                             <h3 className="text-lg font-semibold mb-2">
                                 Get UX outputs
                             </h3>
@@ -219,7 +219,7 @@ export default function Home() {
             <footer className="relative pt-24 pb-12 overflow-hidden">
 
                 {/* BIG BACKGROUND BRAND TEXT */}
-                <div className="absolute bottom-[-60px] left-1/2 -translate-x-1/2 select-none pointer-events-none">
+                <div className="absolute -bottom-15 left-1/2 -translate-x-1/2 select-none pointer-events-none">
                     <h1 className="text-[220px] font-bold text-white/5 tracking-tight">
                         neuuxai
                     </h1>
@@ -228,7 +228,7 @@ export default function Home() {
                 <div className="relative max-w-7xl mx-auto px-6">
 
                     {/* TOP CTA */}
-                    <div className="mb-24 rounded-3xl bg-gradient-to-b from-teal-900/40 to-teal-900/10 border border-teal-600/20 p-12 text-center">
+                    <div className="mb-24 rounded-3xl bg-linear-to-b from-teal-900/40 to-teal-900/10 border border-teal-600/20 p-12 text-center">
                         <h2 className="text-3xl md:text-4xl font-bold mb-4">
                             Design smarter UX with <span className="text-neuuxai">NeuUX AI</span>
                         </h2>

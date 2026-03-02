@@ -32,6 +32,7 @@ export function LoginForm({
         email,
         password,
       });
+
       if (error) throw error;
 
       router.push("/chat");
@@ -42,7 +43,7 @@ export function LoginForm({
     }
   };
 
-  // 🔵 Google Login
+  // 🔵 Google Login (FORCED CONFIRM + ACCOUNT SELECT)
   const handleGoogleLogin = async () => {
     const supabase = createClient();
     setIsLoading(true);
@@ -51,7 +52,10 @@ export function LoginForm({
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/chat`,
+        redirectTo: `${window.location.origin}/auth/callback`,
+        queryParams: {
+          prompt: "consent select_account",
+        },
       },
     });
 
@@ -63,15 +67,18 @@ export function LoginForm({
 
   return (
     <main className={cn("min-h-screen", className)} {...props}>
-      <div className="min-h-screen flex items-center justify-center px-4">
-        <div className="w-full max-w-md border border-teal-600/40 rounded-3xl p-8 bg-gradient-to-b from-teal-900/30 to-transparent space-y-8">
+      <div className="min-h-screen flex items-center justify-center px-2">
+        <div className="w-full max-w-md border border-teal-600/40 rounded-3xl p-8 bg-linear-to-b from-teal-900/30 to-transparent space-y-8">
+          
           {/* Header */}
           <div className="text-center space-y-2">
-            <h1 className="text-3xl font-bold text-white">Ready To Build?</h1>
+            <h1 className="text-3xl font-bold text-white">
+              Ready To Build?
+            </h1>
             <p className="text-gray-400">Sign in to your account.</p>
           </div>
 
-          {/* Form */}
+          {/* Manual Login Form */}
           <form onSubmit={handleLogin} className="space-y-4">
             <Input
               type="email"
@@ -124,7 +131,7 @@ export function LoginForm({
             </div>
           </div>
 
-          {/* Google Auth */}
+          {/* Google Login */}
           <Button
             type="button"
             onClick={handleGoogleLogin}

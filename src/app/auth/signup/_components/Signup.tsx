@@ -22,37 +22,48 @@ export default function SignUpForm() {
   const [isLoading, setIsLoading] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    setFormData((prev) => ({
+      ...prev,
+      [e.target.name]: e.target.value,
+    }));
   };
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
+    // Password match check
     if (formData.password !== formData.confirmPassword) {
       setError("Passwords do not match");
+      return;
+    }
+
+    if (formData.password.length < 6) {
+      setError("Password must be at least 6 characters");
       return;
     }
 
     setIsLoading(true);
 
     try {
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
         options: {
           data: {
             full_name: formData.fullName,
           },
-          emailRedirectTo: `${window.location.origin}/chat`,
         },
       });
 
+      console.log("Signup response:", data);
+
       if (error) throw error;
 
-      router.push("/auth/signup-success");
+        router.push("/auth/signup-success");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong");
+      console.error("Signup error:", err);
+      setError(err instanceof Error ? err.message : "Signup failed");
     } finally {
       setIsLoading(false);
     }
@@ -60,10 +71,10 @@ export default function SignUpForm() {
 
   return (
     <main className="min-h-screen">
-      <div className="min-h-screen flex items-center justify-center px-4">
-        <div className="w-full max-w-md border border-teal-600/40 rounded-3xl p-8 bg-linear-to-b
- from-teal-900/30 to-transparent space-y-8">
-
+      <div className="min-h-screen flex items-center justify-center px-2">
+        <div className="w-full max-w-md border border-teal-600/40 rounded-3xl p-8 bg-linear-to-b from-teal-900/30 to-transparent space-y-8">
+          
+          {/* Header */}
           <div className="text-center space-y-2">
             <h1 className="text-3xl font-bold text-white">
               Welcome To NeuUX AI!
@@ -71,7 +82,9 @@ export default function SignUpForm() {
             <p className="text-gray-400">Create your account.</p>
           </div>
 
+          {/* Form */}
           <form onSubmit={handleSignup} className="space-y-4">
+            
             <div className="grid grid-cols-2 gap-4">
               <Input
                 type="text"
@@ -80,7 +93,7 @@ export default function SignUpForm() {
                 value={formData.fullName}
                 onChange={handleChange}
                 required
-                className="bg-transparent border border-teal-600/30 rounded-full px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-teal-600 transition text-sm"
+                className="bg-transparent border border-teal-600/30 rounded-full px-4 py-3 text-white placeholder-gray-500 focus:border-teal-600 text-sm"
               />
 
               <Input
@@ -90,7 +103,7 @@ export default function SignUpForm() {
                 value={formData.email}
                 onChange={handleChange}
                 required
-                className="bg-transparent border border-teal-600/30 rounded-full px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-teal-600 transition text-sm"
+                className="bg-transparent border border-teal-600/30 rounded-full px-4 py-3 text-white placeholder-gray-500 focus:border-teal-600 text-sm"
               />
             </div>
 
@@ -101,7 +114,7 @@ export default function SignUpForm() {
               value={formData.password}
               onChange={handleChange}
               required
-              className="w-full bg-transparent border border-teal-600/30 rounded-full px-6 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-teal-600 transition"
+              className="w-full bg-transparent border border-teal-600/30 rounded-full px-6 py-3 text-white placeholder-gray-500 focus:border-teal-600"
             />
 
             <Input
@@ -111,7 +124,7 @@ export default function SignUpForm() {
               value={formData.confirmPassword}
               onChange={handleChange}
               required
-              className="w-full bg-transparent border border-teal-600/30 rounded-full px-6 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-teal-600 transition"
+              className="w-full bg-transparent border border-teal-600/30 rounded-full px-6 py-3 text-white placeholder-gray-500 focus:border-teal-600"
             />
 
             {error && (
@@ -120,27 +133,27 @@ export default function SignUpForm() {
 
             <Button
               type="submit"
-              variant={"default"}
-              className="w-full font-semibold"
               disabled={isLoading}
+              className="w-full font-semibold"
             >
               {isLoading ? (
-                <>
+                <span className="flex items-center justify-center gap-2">
                   <Spinner className="h-4 w-4" />
                   Creating account...
-                </>
+                </span>
               ) : (
                 "Sign Up"
               )}
             </Button>
           </form>
 
+          {/* Footer */}
           <div className="text-center">
             <p className="text-gray-400">
-              Do you have an account?{" "}
+              Already have an account?{" "}
               <Button
                 type="button"
-                variant={"link"}
+                variant="link"
                 onClick={() => router.push("/auth/login")}
                 className="text-cyan-400 hover:text-cyan-300 font-semibold"
               >
@@ -148,7 +161,6 @@ export default function SignUpForm() {
               </Button>
             </p>
           </div>
-
         </div>
       </div>
     </main>
