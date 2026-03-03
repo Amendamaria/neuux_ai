@@ -35,7 +35,7 @@ export function LoginForm({
 
       if (error) throw error;
 
-      router.push("/chat");
+      router.push("/dashboard");
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : "Login failed");
     } finally {

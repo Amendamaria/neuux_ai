@@ -20,7 +20,7 @@ export default function AuthCallbackPage() {
         return;
       }
 
-      router.replace("/chat");
+      router.replace("/dashboard");
     };
 
     run();
