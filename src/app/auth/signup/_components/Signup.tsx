@@ -38,10 +38,15 @@ export default function SignUpForm() {
       return;
     }
 
-    if (formData.password.length < 6) {
-      setError("Password must be at least 6 characters");
-      return;
-    }
+ const passwordRegex =
+  /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{6,}$/;
+
+if (!passwordRegex.test(formData.password)) {
+  setError(
+    "Password must be at least 6 characters and include uppercase, lowercase, number, and special character."
+  );
+  return;
+}
 
     setIsLoading(true);
 
@@ -53,6 +58,9 @@ export default function SignUpForm() {
           data: {
             full_name: formData.fullName,
           },
+
+          // IMPORTANT: redirect confirmation link here
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
         },
       });
 
@@ -60,7 +68,7 @@ export default function SignUpForm() {
 
       if (error) throw error;
 
-        router.push("/auth/signup-success");
+      router.push("/auth/signup-success");
     } catch (err) {
       console.error("Signup error:", err);
       setError(err instanceof Error ? err.message : "Signup failed");
@@ -73,7 +81,7 @@ export default function SignUpForm() {
     <main className="min-h-screen">
       <div className="min-h-screen flex items-center justify-center px-2">
         <div className="w-full max-w-md border border-teal-600/40 rounded-3xl p-8 bg-linear-to-b from-teal-900/30 to-transparent space-y-8">
-          
+
           {/* Header */}
           <div className="text-center space-y-2">
             <h1 className="text-3xl font-bold text-white">
@@ -84,7 +92,7 @@ export default function SignUpForm() {
 
           {/* Form */}
           <form onSubmit={handleSignup} className="space-y-4">
-            
+
             <div className="grid grid-cols-2 gap-4">
               <Input
                 type="text"
@@ -161,6 +169,7 @@ export default function SignUpForm() {
               </Button>
             </p>
           </div>
+
         </div>
       </div>
     </main>

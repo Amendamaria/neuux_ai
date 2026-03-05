@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import NewProjectModal from "@/components/NewProjectModal";
+import Image from "next/image";
+import Link from "next/link";
 
 type Project = {
   id: string;
@@ -20,23 +22,31 @@ type Project = {
 };
 
 export default function DashboardPage() {
-  const supabase = createClient();
+
   const router = useRouter();
+  const supabase = createClient();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
+  const [userEmail, setUserEmail] = useState("");
 
   useEffect(() => {
-    const fetchProjects = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
 
-      if (!user) {
-        setLoading(false);
-        return;
-      }
+    const init = async () => {
+
+      const {
+  data: { session },
+} = await supabase.auth.getSession();
+
+if (!session) {
+  router.replace("/auth/login");
+  return;
+}
+
+const user = session.user;
+
+      setUserEmail(user.email ?? "");
 
       const { data, error } = await supabase
         .from("projects")
@@ -63,8 +73,14 @@ export default function DashboardPage() {
       setLoading(false);
     };
 
-    fetchProjects();
-  }, []);
+    init();
+
+  }, []); // run once only
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    router.push("/");
+  };
 
   const getStatusColor = (status?: string) => {
     if (status === "completed") return "bg-green-500";
@@ -73,116 +89,153 @@ export default function DashboardPage() {
   };
 
   return (
+
     <div className="flex h-screen bg-neutral-950 text-white">
 
-      {/* Sidebar */}
-      <aside className="w-20 border-r border-neutral-800 flex flex-col items-center py-6 gap-6">
-        <div className="text-xl font-bold">N</div>
-
-        <button className="p-3 rounded-xl hover:bg-white/10 transition">
-          🏠
-        </button>
-
-        <button className="p-3 rounded-xl hover:bg-white/10 transition">
-          ⚙️
-        </button>
-      </aside>
-
-      {/* Main */}
-      <main className="flex-1 p-10 overflow-y-auto">
+      <main className="flex-1 flex flex-col">
 
         {/* Header */}
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-semibold">Dashboard</h1>
-            <p className="text-sm text-neutral-400 mt-1">
-              Manage your UX projects
-            </p>
+
+        <div className="flex items-center justify-between px-10 py-4 border-b border-neutral-800">
+
+          <Link href="/" className="flex items-center gap-2">
+            <Image
+              src="/logo.png"
+              alt="NeuUXAI Logo"
+              width={110}
+              height={28}
+              className="object-contain"
+              priority
+            />
+          </Link>
+
+          <div className="flex items-center gap-4">
+
+            <span className="text-sm text-neutral-300">
+              {userEmail}
+            </span>
+
+            <button
+              onClick={handleLogout}
+              className="px-3 py-1.5 text-sm bg-neutral-800 hover:bg-neutral-700 rounded-lg"
+            >
+              Logout
+            </button>
+
           </div>
 
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="px-6 py-2 rounded-xl bg-white text-black text-sm font-medium hover:opacity-90 transition"
-          >
-            + New Project
-          </button>
         </div>
 
-        {/* Grid */}
-        <div className="grid grid-cols-3 gap-6 mt-10">
+        {/* Dashboard */}
 
-          {loading && (
-            <div className="text-neutral-400 text-sm">
-              Loading projects...
-            </div>
-          )}
+        <div className="p-10 overflow-y-auto flex-1">
 
-          {!loading && projects.length === 0 && (
-            <div
-              onClick={() => setIsModalOpen(true)}
-              className="h-40 border border-dashed border-neutral-700 rounded-2xl flex items-center justify-center hover:bg-white/5 cursor-pointer transition"
-            >
-              <span className="text-neutral-400 text-sm">
-                + Create your first UX Project
-              </span>
-            </div>
-          )}
+          <div className="flex justify-between items-center">
 
-          {projects.map((project) => (
-            <div
-              key={project.id}
-              onClick={() => router.push(`/project/${project.id}`)}
-              className="p-6 bg-neutral-900 border border-neutral-800 rounded-2xl hover:bg-neutral-800 transition cursor-pointer"
-            >
-              <h3 className="text-lg font-medium">
-                {project.name}
-              </h3>
+            <div>
+              <h1 className="text-2xl font-semibold">
+                Dashboard
+              </h1>
 
-              <p className="text-sm text-neutral-400 mt-2 line-clamp-2">
-                {project.description}
+              <p className="text-sm text-neutral-400 mt-1">
+                Manage your UX projects
               </p>
+            </div>
 
-              {/* AI Status Indicators */}
-              <div className="flex flex-wrap gap-2 mt-4 text-xs">
-                <div className="flex items-center gap-1">
-                  <span className={`w-2 h-2 rounded-full ${getStatusColor(project.overview_status)}`} />
-                  Overview
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="px-6 py-2 rounded-xl bg-white text-black text-sm font-medium hover:opacity-90 transition"
+            >
+              + New Project
+            </button>
+
+          </div>
+
+          {/* Projects */}
+
+          <div className="grid grid-cols-3 gap-6 mt-10">
+
+            {loading && (
+              <div className="text-neutral-400 text-sm">
+                Loading projects...
+              </div>
+            )}
+
+            {!loading && projects.length === 0 && (
+              <div
+                onClick={() => setIsModalOpen(true)}
+                className="h-40 border border-dashed border-neutral-700 rounded-2xl flex items-center justify-center hover:bg-white/5 cursor-pointer transition"
+              >
+                <span className="text-neutral-400 text-sm">
+                  + Create your first UX Project
+                </span>
+              </div>
+            )}
+
+            {projects.map((project) => (
+
+              <div
+                key={project.id}
+                onClick={() => router.push(`/project/${project.id}`)}
+                className="p-6 bg-neutral-900 border border-neutral-800 rounded-2xl hover:bg-neutral-800 transition cursor-pointer"
+              >
+
+                <h3 className="text-lg font-medium">
+                  {project.name}
+                </h3>
+
+                <p className="text-sm text-neutral-400 mt-2 line-clamp-2">
+                  {project.description}
+                </p>
+
+                <div className="flex flex-wrap gap-2 mt-4 text-xs">
+
+                  <div className="flex items-center gap-1">
+                    <span className={`w-2 h-2 rounded-full ${getStatusColor(project.overview_status)}`} />
+                    Overview
+                  </div>
+
+                  <div className="flex items-center gap-1">
+                    <span className={`w-2 h-2 rounded-full ${getStatusColor(project.persona_status)}`} />
+                    Persona
+                  </div>
+
+                  <div className="flex items-center gap-1">
+                    <span className={`w-2 h-2 rounded-full ${getStatusColor(project.journey_status)}`} />
+                    Journey
+                  </div>
+
+                  <div className="flex items-center gap-1">
+                    <span className={`w-2 h-2 rounded-full ${getStatusColor(project.flow_status)}`} />
+                    Flow
+                  </div>
+
+                  <div className="flex items-center gap-1">
+                    <span className={`w-2 h-2 rounded-full ${getStatusColor(project.ui_status)}`} />
+                    UI
+                  </div>
+
                 </div>
 
-                <div className="flex items-center gap-1">
-                  <span className={`w-2 h-2 rounded-full ${getStatusColor(project.persona_status)}`} />
-                  Persona
-                </div>
+                <p className="text-xs text-neutral-500 mt-4">
+                  {new Date(project.created_at).toLocaleDateString()}
+                </p>
 
-                <div className="flex items-center gap-1">
-                  <span className={`w-2 h-2 rounded-full ${getStatusColor(project.journey_status)}`} />
-                  Journey
-                </div>
-
-                <div className="flex items-center gap-1">
-                  <span className={`w-2 h-2 rounded-full ${getStatusColor(project.flow_status)}`} />
-                  Flow
-                </div>
-
-                <div className="flex items-center gap-1">
-                  <span className={`w-2 h-2 rounded-full ${getStatusColor(project.ui_status)}`} />
-                  UI
-                </div>
               </div>
 
-              <p className="text-xs text-neutral-500 mt-4">
-                {new Date(project.created_at).toLocaleDateString()}
-              </p>
-            </div>
-          ))}
+            ))}
+
+          </div>
 
         </div>
+
       </main>
 
       <NewProjectModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
       />
+
     </div>
   );
 }

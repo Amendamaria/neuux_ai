@@ -10,10 +10,11 @@ type ChatMessage = {
 
 type Props = {
   projectId: string;
-  module: string; // "overview" | "personas" | "case-study"
+  module: string; // "overview" | "personas" 
+  onUpdate?: () => void | Promise<void>;
 };
 
-export default function AiChat({ projectId, module }: Props) {
+export default function AiChat({ projectId, module, onUpdate }: Props) {
   const supabase = createClient();
 
   const [chat, setChat] = useState<ChatMessage[]>([]);
@@ -76,7 +77,9 @@ export default function AiChat({ projectId, module }: Props) {
     try {
       const response = await fetch("/api/ai/chat", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({
           projectId,
           activeTab: module,
@@ -102,6 +105,12 @@ export default function AiChat({ projectId, module }: Props) {
         ...prev,
         { role: "assistant", content: assistantMessage },
       ]);
+
+      // 🔥 Refresh parent component (OverviewTab)
+      if (result.success && onUpdate) {
+        await onUpdate();
+      }
+
     } catch {
       const errorMessage = "Network error. Please try again.";
 

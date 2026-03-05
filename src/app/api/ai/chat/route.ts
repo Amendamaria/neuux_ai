@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import OpenAI from "openai";
+import { aiChat } from "@/lib/ai";
+
+/* ================= TYPES ================= */
 
 type Persona = {
   name: string;
@@ -22,27 +24,32 @@ type PersonaUpdate = {
 };
 
 export async function POST(req: Request) {
+
   try {
+
     const {
-      GITHUB_TOKEN,
       NEXT_PUBLIC_SUPABASE_URL,
       SUPABASE_SERVICE_ROLE_KEY,
     } = process.env;
 
-    if (!GITHUB_TOKEN || !NEXT_PUBLIC_SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+    if (!NEXT_PUBLIC_SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+
       return NextResponse.json(
         { success: false, error: "Missing environment variables" },
         { status: 500 }
       );
+
     }
 
     const { projectId, activeTab, message } = await req.json();
 
     if (!projectId || !activeTab || !message) {
+
       return NextResponse.json(
         { success: false, error: "Missing required fields" },
         { status: 400 }
       );
+
     }
 
     const supabase = createClient(
@@ -50,32 +57,31 @@ export async function POST(req: Request) {
       SUPABASE_SERVICE_ROLE_KEY
     );
 
-    const openai = new OpenAI({
-      apiKey: GITHUB_TOKEN,
-      baseURL: "https://models.inference.ai.azure.com",
-    });
-
-    // ================= FETCH PROJECT =================
+    /* ================= FETCH PROJECT ================= */
 
     const { data: project } = await supabase
       .from("projects")
       .select("*")
       .eq("id", projectId)
-      .single();
+      .maybeSingle();
 
     if (!project) {
+
       return NextResponse.json(
         { success: false, error: "Project not found" },
         { status: 404 }
       );
+
     }
 
-    // =================================================
-    // OVERVIEW MODULE
-    // =================================================
+    /* ================================================= */
+    /* OVERVIEW MODULE                                   */
+    /* ================================================= */
+
     if (activeTab === "overview") {
+
       const prompt = `
-You are editing a UX project overview.
+You are a UX strategist helping improve a UX project overview.
 
 Project:
 ${JSON.stringify(project, null, 2)}
@@ -83,30 +89,31 @@ ${JSON.stringify(project, null, 2)}
 User request:
 ${message}
 
-If user wants to update a section (summary, problem_statement, ux_objectives, success_metrics),
-return JSON:
+Rules:
+
+1. If the user asks to modify a section (summary, problem_statement, ux_objectives, success_metrics),
+   return ONLY this structure:
 
 {
-  "field": "",
-  "new_value": ""
+ "field": "section_name",
+ "new_value": "updated text"
 }
 
-Otherwise respond conversationally.
+2. Do NOT explain that you are returning JSON.
+3. Do NOT ask for confirmation.
+4. Do NOT include any extra text.
+5. If the user is asking for advice, explanation, or suggestions, respond normally in plain text.
 `;
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        temperature: 0.6,
-        messages: [
-          { role: "system", content: "Follow instructions strictly." },
-          { role: "user", content: prompt },
-        ],
-      });
+      let aiText = await aiChat([
+        { role: "system", content: "You are a senior UX strategist." },
+        { role: "user", content: prompt }
+      ]);
 
-      let aiText = response.choices?.[0]?.message?.content?.trim() || "";
       aiText = aiText.replace(/```json/g, "").replace(/```/g, "").trim();
 
       try {
+
         const parsed = JSON.parse(aiText);
 
         const allowedFields = [
@@ -117,6 +124,7 @@ Otherwise respond conversationally.
         ];
 
         if (parsed.field && allowedFields.includes(parsed.field)) {
+
           await supabase
             .from("project_overview")
             .update({ [parsed.field]: parsed.new_value })
@@ -125,22 +133,28 @@ Otherwise respond conversationally.
           return NextResponse.json({
             success: true,
             type: "update",
-            message: `Updated ${parsed.field} successfully.`,
+            message: `${parsed.field.replace(/_/g, " ")} updated successfully.`,
+            data: parsed
           });
+
         }
+
       } catch {}
 
       return NextResponse.json({
         success: true,
         type: "chat",
-        message: aiText,
+        message: aiText
       });
+
     }
 
-    // =================================================
-    // PERSONAS MODULE
-    // =================================================
+    /* ================================================= */
+    /* PERSONAS MODULE                                   */
+    /* ================================================= */
+
     if (activeTab === "personas") {
+
       const { data: personas } = await supabase
         .from("project_personas")
         .select("*")
@@ -159,7 +173,9 @@ Description: ${project.description}
 User request:
 ${message}
 
-If generating a NEW persona, return ONLY JSON array:
+Rules:
+
+If generating a NEW persona return JSON array:
 
 [
   {
@@ -176,123 +192,63 @@ If generating a NEW persona, return ONLY JSON array:
   }
 ]
 
-If updating existing persona, return:
+If updating an existing persona return:
 
 {
-  "persona_name": "",
-  "field": "",
-  "new_value": ""
+ "persona_name": "",
+ "field": "",
+ "new_value": ""
 }
 
-Otherwise respond conversationally.
+If the user is asking advice or explanation, respond normally.
 `;
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        temperature: 0.7,
-        messages: [
-          { role: "system", content: "Return valid JSON when required." },
-          { role: "user", content: prompt },
-        ],
-      });
+      let aiText = await aiChat([
+        { role: "system", content: "Return JSON only when updating data." },
+        { role: "user", content: prompt }
+      ]);
 
-      let aiText = response.choices?.[0]?.message?.content?.trim() || "";
       aiText = aiText.replace(/```json/g, "").replace(/```/g, "").trim();
 
-      // ---------------------------
-      // Try NEW persona generation
-      // ---------------------------
       try {
+
         const parsed = JSON.parse(aiText);
 
-        // If array → new persona(s)
-        if (Array.isArray(parsed)) {
-          const newPersonas: Persona[] = parsed;
+        /* -------- NEW PERSONA -------- */
 
-          const insertData = newPersonas.map((p) => ({
+        if (Array.isArray(parsed)) {
+
+          const insertData = parsed.map((p: Persona) => ({
             project_id: projectId,
-            name: p.name ?? "",
-            age: p.age ?? "",
-            occupation: p.occupation ?? "",
-            location: p.location ?? "",
-            background: p.background ?? "",
-            goals: p.goals ?? "",
-            pain_points: p.pain_points ?? "",
-            motivations: p.motivations ?? "",
-            tech_usage: p.tech_usage ?? "",
-            quote: p.quote ?? "",
+            ...p
           }));
 
           await supabase.from("project_personas").insert(insertData);
 
-          const formatted = newPersonas
-  .map(
-    (p) => `
-Here is a new persona:
+          return NextResponse.json({
+            success: true,
+            type: "update",
+            message: "New persona generated successfully.",
+            data: parsed
+          });
 
-Name: ${p.name}
-Age: ${p.age}
-Occupation: ${p.occupation}
-Location: ${p.location}
-
-Background:
-${p.background}
-
-Goals:
-${p.goals}
-
-Pain Points:
-${p.pain_points}
-
-Motivations:
-${p.motivations}
-
-Tech Usage:
-${p.tech_usage}
-
-Quote:
-"${p.quote}"
-`
-  )
-  .join("\n\n");
-
-return NextResponse.json({
-  success: true,
-  type: "chat",
-  message: formatted.trim(),
-});
         }
 
-        // ---------------------------
-        // Try persona update
-        // ---------------------------
+        /* -------- UPDATE PERSONA -------- */
+
         const update: PersonaUpdate = parsed;
 
-        const allowedFields = [
-          "name",
-          "age",
-          "occupation",
-          "location",
-          "background",
-          "goals",
-          "pain_points",
-          "motivations",
-          "tech_usage",
-          "quote",
-        ];
+        if (update.persona_name && update.field && update.new_value) {
 
-        if (
-          update.persona_name &&
-          allowedFields.includes(update.field)
-        ) {
           const { data: target } = await supabase
             .from("project_personas")
             .select("id")
             .eq("project_id", projectId)
             .ilike("name", `%${update.persona_name}%`)
-            .single();
+            .maybeSingle();
 
           if (target) {
+
             await supabase
               .from("project_personas")
               .update({ [update.field]: update.new_value })
@@ -301,25 +257,32 @@ return NextResponse.json({
             return NextResponse.json({
               success: true,
               type: "update",
-              message: `Updated ${update.persona_name}'s ${update.field}.`,
+              message: `${update.persona_name}'s ${update.field.replace(/_/g," ")} updated.`,
+              data: update
             });
+
           }
+
         }
+
       } catch {}
 
       return NextResponse.json({
         success: true,
         type: "chat",
-        message: aiText,
+        message: aiText
       });
+
     }
 
-    // =================================================
-    // CASE STUDY MODULE
-    // =================================================
+    /* ================================================= */
+    /* CASE STUDY MODULE                                 */
+    /* ================================================= */
+
     if (activeTab === "case-study") {
+
       const prompt = `
-You are generating professional UX case study content.
+You are generating UX case study content.
 
 Project:
 ${JSON.stringify(project, null, 2)}
@@ -328,34 +291,35 @@ User request:
 ${message}
 `;
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        temperature: 0.7,
-        messages: [
-          { role: "system", content: "You are a senior UX strategist." },
-          { role: "user", content: prompt },
-        ],
-      });
-
-      const aiText =
-        response.choices?.[0]?.message?.content?.trim() || "";
+      const aiText = await aiChat([
+        { role: "system", content: "You are a senior UX strategist." },
+        { role: "user", content: prompt }
+      ]);
 
       return NextResponse.json({
         success: true,
         type: "chat",
-        message: aiText,
+        message: aiText
       });
+
     }
 
     return NextResponse.json(
-      { success: false, error: "Invalid tab" },
+      { success: false, error: "Invalid module" },
       { status: 400 }
     );
-  } catch (error) {
-    console.error(error);
+
+  } catch (error: unknown) {
+
+    console.error("AI Chat Error:", error);
+
+    const message =
+      error instanceof Error ? error.message : "Server error";
+
     return NextResponse.json(
-      { success: false, error: "Server error" },
+      { success: false, error: message },
       { status: 500 }
     );
+
   }
 }

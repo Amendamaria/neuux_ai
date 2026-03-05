@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import OpenAI from "openai";
+import { aiChat } from "@/lib/ai";
 
 type JourneyStage = {
   stage: string;
@@ -14,15 +14,66 @@ type JourneyData = {
   stages: JourneyStage[];
 };
 
+/* ================================================= */
+/* GET → Load Saved Journey                          */
+/* ================================================= */
+
+export async function GET(req: Request) {
+
+  const { searchParams } = new URL(req.url);
+
+  const projectId = searchParams.get("projectId");
+  const personaId = searchParams.get("personaId");
+
+  if (!projectId || !personaId) {
+    return NextResponse.json(
+      { success: false, error: "Missing parameters" },
+      { status: 400 }
+    );
+  }
+
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+
+  const { data, error } = await supabase
+    .from("project_journey_maps")
+    .select("journey_data")
+    .eq("project_id", projectId)
+    .eq("persona_id", personaId)
+    .maybeSingle();
+
+  if (error) {
+    console.error("Fetch Journey Error:", error);
+
+    return NextResponse.json(
+      { success: false, error: error.message },
+      { status: 500 }
+    );
+  }
+
+  return NextResponse.json({
+    success: true,
+    data: data?.journey_data || null
+  });
+
+}
+
+/* ================================================= */
+/* POST → Generate Journey Map                       */
+/* ================================================= */
+
 export async function POST(req: Request) {
+
   try {
+
     const {
-      GITHUB_TOKEN,
       NEXT_PUBLIC_SUPABASE_URL,
-      SUPABASE_SERVICE_ROLE_KEY,
+      SUPABASE_SERVICE_ROLE_KEY
     } = process.env;
 
-    if (!GITHUB_TOKEN || !NEXT_PUBLIC_SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+    if (!NEXT_PUBLIC_SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
       return NextResponse.json(
         { success: false, error: "Missing environment variables" },
         { status: 500 }
@@ -43,13 +94,8 @@ export async function POST(req: Request) {
       SUPABASE_SERVICE_ROLE_KEY
     );
 
-    const openai = new OpenAI({
-      apiKey: GITHUB_TOKEN,
-      baseURL: "https://models.inference.ai.azure.com",
-    });
-
     /* ========================= */
-    /*   Fetch Overview + Persona */
+    /* Fetch Overview + Persona  */
     /* ========================= */
 
     const { data: overview } = await supabase
@@ -72,7 +118,7 @@ export async function POST(req: Request) {
     }
 
     /* ========================= */
-    /*         AI Prompt         */
+    /* AI Prompt                 */
     /* ========================= */
 
     const prompt = `
@@ -91,80 +137,75 @@ Occupation: ${persona.occupation}
 Goals: ${persona.goals}
 Pain Points: ${persona.pain_points}
 
-Generate a complete UX journey map.
+Generate a UX journey map.
 
-Return STRICTLY valid JSON in this format:
+Return STRICT JSON only:
 
 {
-  "stages": [
-    {
-      "stage": "Discovery",
-      "user_actions": [],
-      "user_thoughts": [],
-      "pain_points": [],
-      "opportunities": []
-    },
-    {
-      "stage": "Consideration",
-      "user_actions": [],
-      "user_thoughts": [],
-      "pain_points": [],
-      "opportunities": []
-    },
-    {
-      "stage": "Usage",
-      "user_actions": [],
-      "user_thoughts": [],
-      "pain_points": [],
-      "opportunities": []
-    },
-    {
-      "stage": "Retention",
-      "user_actions": [],
-      "user_thoughts": [],
-      "pain_points": [],
-      "opportunities": []
-    }
-  ]
+ "stages":[
+  {
+   "stage":"",
+   "user_actions":[],
+   "user_thoughts":[],
+   "pain_points":[],
+   "opportunities":[]
+  }
+ ]
 }
 `;
 
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o",
-      temperature: 0.7,
-      messages: [
-        { role: "system", content: "Return valid JSON only." },
-        { role: "user", content: prompt },
-      ],
-    });
-
-    let text = completion.choices?.[0]?.message?.content?.trim() || "";
-
     /* ========================= */
-    /*     Clean AI Response     */
+    /* AI Generation             */
     /* ========================= */
 
-    text = text.replace(/```json/g, "").replace(/```/g, "").trim();
+    const aiTextRaw = await aiChat([
+      {
+        role: "system",
+        content:
+          "You are a senior UX strategist. Return only JSON without explanations."
+      },
+      {
+        role: "user",
+        content: prompt
+      }
+    ]);
 
-    const first = text.indexOf("{");
-    const last = text.lastIndexOf("}");
+    /* ========================= */
+    /* Clean AI Response         */
+    /* ========================= */
 
-    if (first === -1 || last === -1) {
-      throw new Error("Invalid JSON format from AI");
+    const cleaned = aiTextRaw
+      .replace(/```json/g, "")
+      .replace(/```/g, "")
+      .trim();
+
+    const start = cleaned.indexOf("{");
+    const end = cleaned.lastIndexOf("}");
+
+    if (start === -1 || end === -1) {
+      console.error("AI RESPONSE:", cleaned);
+      throw new Error("AI returned invalid JSON format");
     }
-
-    text = text.slice(first, last + 1);
 
     let parsed: JourneyData;
 
     try {
-      parsed = JSON.parse(text);
-    } catch {
+
+      const json = cleaned.slice(start, end + 1);
+
+      parsed = JSON.parse(json);
+
+    } catch (err) {
+
+      console.error("JSON parse error:", err);
+      console.error("AI RESPONSE:", cleaned);
+
       throw new Error("AI returned invalid JSON");
+
     }
 
     /* ========================= */
-    /*   Validate Structure      */
+    /* Validate Structure        */
     /* ========================= */
 
     if (!parsed.stages || !Array.isArray(parsed.stages)) {
@@ -177,36 +218,59 @@ Return STRICTLY valid JSON in this format:
         user_actions: stage.user_actions || [],
         user_thoughts: stage.user_thoughts || [],
         pain_points: stage.pain_points || [],
-        opportunities: stage.opportunities || [],
-      })),
+        opportunities: stage.opportunities || []
+      }))
     };
 
     /* ========================= */
-    /*      Save to Database     */
+    /* Save Journey Map          */
     /* ========================= */
 
     const { error: dbError } = await supabase
       .from("project_journey_maps")
-      .upsert({
-        project_id: projectId,
-        persona_id: personaId,
-        journey_data: safeData,
-      });
+      .upsert(
+        {
+          project_id: projectId,
+          persona_id: personaId,
+          journey_data: safeData
+        },
+        { onConflict: "project_id,persona_id" }
+      );
 
     if (dbError) {
-      throw new Error("Database insert failed");
+
+      console.error("Supabase Error:", dbError);
+
+      throw new Error(dbError.message);
+
     }
 
     /* ========================= */
-    /*     Return to Frontend    */
+    /* Save AI Chat              */
+    /* ========================= */
+
+    await supabase
+      .from("project_ai_chats")
+      .insert([
+        {
+          project_id: projectId,
+          module: "journey",
+          role: "assistant",
+          message: JSON.stringify(safeData)
+        }
+      ]);
+
+    /* ========================= */
+    /* Return Result             */
     /* ========================= */
 
     return NextResponse.json({
       success: true,
-      data: safeData,
+      data: safeData
     });
 
   } catch (error) {
+
     console.error("Journey Error:", error);
 
     return NextResponse.json(

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import OpenAI from "openai";
+import { aiChat } from "@/lib/ai";
 
 type PersonaPayload = {
   name: string;
@@ -17,20 +17,13 @@ type PersonaPayload = {
 
 export async function POST(req: Request) {
   try {
+
+    const { projectId } = await req.json();
+
     const {
-      GITHUB_TOKEN,
       NEXT_PUBLIC_SUPABASE_URL,
       SUPABASE_SERVICE_ROLE_KEY,
     } = process.env;
-
-    if (!GITHUB_TOKEN || !NEXT_PUBLIC_SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-      return NextResponse.json(
-        { success: false, error: "Missing environment variables" },
-        { status: 500 }
-      );
-    }
-
-    const { projectId } = await req.json();
 
     if (!projectId) {
       return NextResponse.json(
@@ -40,16 +33,12 @@ export async function POST(req: Request) {
     }
 
     const supabase = createClient(
-      NEXT_PUBLIC_SUPABASE_URL,
-      SUPABASE_SERVICE_ROLE_KEY
+      NEXT_PUBLIC_SUPABASE_URL!,
+      SUPABASE_SERVICE_ROLE_KEY!
     );
 
-    const openai = new OpenAI({
-      apiKey: GITHUB_TOKEN,
-      baseURL: "https://models.inference.ai.azure.com",
-    });
+    /* Fetch project */
 
-    // Fetch project
     const { data: project, error: projectError } = await supabase
       .from("projects")
       .select("*")
@@ -66,21 +55,21 @@ export async function POST(req: Request) {
     const prompt = `
 Generate 2 realistic UX personas.
 
-Return ONLY valid JSON array in this exact format:
+Return ONLY JSON array.
 
 [
-  {
-    "name": "",
-    "age": "",
-    "occupation": "",
-    "location": "",
-    "background": "",
-    "goals": "",
-    "pain_points": "",
-    "motivations": "",
-    "tech_usage": "",
-    "quote": ""
-  }
+{
+"name":"",
+"age":"",
+"occupation":"",
+"location":"",
+"background":"",
+"goals":"",
+"pain_points":"",
+"motivations":"",
+"tech_usage":"",
+"quote":""
+}
 ]
 
 Project:
@@ -90,58 +79,26 @@ Target Users: ${project.target_users}
 Goal: ${project.goal}
 `;
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      temperature: 0.7,
-      messages: [
-        {
-          role: "system",
-          content: "You are a senior UX strategist. Return valid JSON only.",
-        },
-        { role: "user", content: prompt },
-      ],
-    });
+    const aiTextRaw = await aiChat([
+      {
+        role: "system",
+        content: "You are a senior UX strategist. Return JSON only.",
+      },
+      {
+        role: "user",
+        content: prompt,
+      },
+    ]);
 
-    let aiText = response.choices?.[0]?.message?.content?.trim();
-
-    if (!aiText) {
-      return NextResponse.json(
-        { success: false, error: "AI returned empty response" },
-        { status: 500 }
-      );
-    }
-
-    // Clean AI response
-    aiText = aiText
+    const aiText = aiTextRaw
       .replace(/```json/g, "")
       .replace(/```/g, "")
       .trim();
 
-    const firstBracket = aiText.indexOf("[");
-    const lastBracket = aiText.lastIndexOf("]");
+    const parsed: PersonaPayload[] = JSON.parse(aiText);
 
-    if (firstBracket === -1 || lastBracket === -1) {
-      return NextResponse.json(
-        { success: false, error: "AI returned invalid format" },
-        { status: 500 }
-      );
-    }
+    /* Delete old personas */
 
-    const cleanJson = aiText.slice(firstBracket, lastBracket + 1);
-
-    let parsed: PersonaPayload[];
-
-    try {
-      parsed = JSON.parse(cleanJson);
-      if (!Array.isArray(parsed)) throw new Error();
-    } catch {
-      return NextResponse.json(
-        { success: false, error: "AI returned invalid JSON" },
-        { status: 500 }
-      );
-    }
-
-    // Delete old personas
     await supabase
       .from("project_personas")
       .delete()
@@ -149,34 +106,31 @@ Goal: ${project.goal}
 
     const insertData = parsed.map((p) => ({
       project_id: projectId,
-      name: p.name ?? "",
-      age: p.age ?? "",
-      occupation: p.occupation ?? "",
-      location: p.location ?? "",
-      background: p.background ?? "",
-      goals: p.goals ?? "",
-      pain_points: p.pain_points ?? "",
-      motivations: p.motivations ?? "",
-      tech_usage: p.tech_usage ?? "",
-      quote: p.quote ?? "",
+      name: p.name,
+      age: p.age,
+      occupation: p.occupation,
+      location: p.location,
+      background: p.background,
+      goals: p.goals,
+      pain_points: p.pain_points,
+      motivations: p.motivations,
+      tech_usage: p.tech_usage,
+      quote: p.quote,
     }));
 
-    const { error: insertError } = await supabase
-      .from("project_personas")
-      .insert(insertData);
+    await supabase.from("project_personas").insert(insertData);
 
-    if (insertError) {
-      return NextResponse.json(
-        { success: false, error: "Database insert failed" },
-        { status: 500 }
-      );
-    }
+    return NextResponse.json({
+      success: true,
+      personas: insertData,
+    });
 
-    return NextResponse.json({ success: true });
-  } catch (err) {
-    console.error(err);
+  } catch (error) {
+
+    console.error(error);
+
     return NextResponse.json(
-      { success: false, error: "Server error" },
+      { success: false, error: "Persona generation failed" },
       { status: 500 }
     );
   }

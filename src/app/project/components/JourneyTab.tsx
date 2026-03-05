@@ -1,24 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createClient } from "@supabase/supabase-js";
 
-/* ✅ Stable Supabase client (outside component) */
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
-
-type Stage = {
-  stage: string;
-  user_actions: string[];
-  user_thoughts: string[];
-  pain_points: string[];
-  opportunities: string[];
-};
-
-type Journey = {
-  stages: Stage[];
+type Props = {
+  projectId: string;
 };
 
 type Persona = {
@@ -26,207 +11,433 @@ type Persona = {
   name: string;
 };
 
-interface Props {
-  projectId: string;
-}
+type Stage = {
+  name?: string;
+  stage?: string;
+  objectives?: string;
+  needs?: string;
+  feelings?: string;
+  barriers?: string;
+  [key: string]: string | number | null | undefined;
+};
+
+type JourneyMap = {
+  stages: Stage[];
+};
+
+type ChatMessage = {
+  role: "user" | "assistant";
+  text: string;
+};
 
 export default function JourneyTab({ projectId }: Props) {
+
   const [personas, setPersonas] = useState<Persona[]>([]);
-  const [selectedPersona, setSelectedPersona] = useState<string | null>(null);
-  const [journey, setJourney] = useState<Journey | null>(null);
+  const [selectedPersona, setSelectedPersona] = useState<string>("");
+
+  const [journey, setJourney] = useState<JourneyMap | null>(null);
+  const [columns, setColumns] = useState<string[]>([]);
+
+  const [chat, setChat] = useState<ChatMessage[]>([]);
+  const [message, setMessage] = useState("");
+
   const [loading, setLoading] = useState(false);
 
   /* ========================= */
-  /*        Fetch Personas     */
+  /* Load Personas             */
   /* ========================= */
 
   useEffect(() => {
-    const fetchPersonas = async () => {
-      const { data, error } = await supabase
-        .from("project_personas")
-        .select("id, name")
-        .eq("project_id", projectId);
 
-      if (error) {
-        console.error(error);
-        return;
-      }
+    async function loadPersonas() {
 
-      if (data) {
-        setPersonas(data);
-        if (data.length > 0) {
-          setSelectedPersona(data[0].id);
+      try {
+
+        const res = await fetch(`/api/personas?projectId=${projectId}`);
+        const data = await res.json();
+
+        if (data.success && data.data) {
+
+          setPersonas(data.data);
+
+          if (data.data.length > 0) {
+            setSelectedPersona(data.data[0].id);
+          }
+
         }
-      }
-    };
 
-    fetchPersonas();
+      } catch (error) {
+        console.error("Failed to load personas", error);
+      }
+
+    }
+
+    loadPersonas();
+
   }, [projectId]);
 
   /* ========================= */
-  /*        Fetch Journey      */
+  /* Load Journey Map          */
   /* ========================= */
 
   useEffect(() => {
-    if (!selectedPersona) return;
 
-    const fetchJourney = async () => {
-      const { data, error } = await supabase
-        .from("project_journey_maps")
-        .select("journey_data")
-        .eq("project_id", projectId)
-        .eq("persona_id", selectedPersona)
-        .maybeSingle();
+    async function fetchJourney() {
 
-      if (error) {
-        console.error(error);
-        return;
+      if (!selectedPersona) return;
+
+      try {
+
+        const res = await fetch(
+          `/api/journey-map?projectId=${projectId}&personaId=${selectedPersona}`
+        );
+
+        const data = await res.json();
+
+        if (data.success && data.data) {
+
+          setJourney(data.data);
+
+          if (data.data.stages?.length > 0) {
+            setColumns(Object.keys(data.data.stages[0]));
+          }
+
+        } else {
+          setJourney(null);
+        }
+
+      } catch (error) {
+        console.error("Failed to load journey map", error);
       }
 
-      if (data?.journey_data) {
-        setJourney(data.journey_data);
-      } else {
-        setJourney(null);
-      }
-    };
+    }
 
     fetchJourney();
-  }, [selectedPersona, projectId]);
+
+  }, [projectId, selectedPersona]);
 
   /* ========================= */
-  /*      Generate Journey     */
+  /* Load Chat History         */
   /* ========================= */
 
-  const generateJourney = async () => {
+  useEffect(() => {
+
+    async function loadChat() {
+
+      try {
+
+        const res = await fetch(
+          `/api/journey-map-chat?projectId=${projectId}`
+        );
+
+        const data = await res.json();
+
+        if (data.success && data.data) {
+
+          const formatted = data.data.map(
+            (m: { role: "user" | "assistant"; message: string }) => ({
+              role: m.role,
+              text: m.message
+            })
+          );
+
+          setChat(formatted);
+
+        }
+
+      } catch (error) {
+        console.error("Failed to load chat history", error);
+      }
+
+    }
+
+    loadChat();
+
+  }, [projectId]);
+
+  /* ========================= */
+  /* Generate Journey Map      */
+  /* ========================= */
+
+  async function generate() {
+
     if (!selectedPersona) return;
 
     setLoading(true);
 
-    const res = await fetch("/api/ai/journey-map", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        projectId,
-        personaId: selectedPersona,
-      }),
-    });
+    try {
 
-    const result = await res.json();
+      const res = await fetch("/api/ai/journey-map", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          projectId,
+          personaId: selectedPersona
+        })
+      });
 
-    if (result.success && result.data) {
-      setJourney(result.data);
-    } else {
-      alert("Journey generation failed");
+      const data = await res.json();
+
+      if (data.success) {
+
+        setJourney(data.data);
+
+        if (data.data.stages?.length > 0) {
+          setColumns(Object.keys(data.data.stages[0]));
+        }
+
+      }
+
+    } catch (error) {
+      console.error("Journey generation failed", error);
     }
 
     setLoading(false);
-  };
+  }
 
   /* ========================= */
-  /*            UI             */
+  /* Chat Send                 */
+  /* ========================= */
+
+  async function send() {
+
+    if (!message.trim() || !journey || !selectedPersona) return;
+
+    const userMsg = message;
+
+    setChat((c) => [...c, { role: "user", text: userMsg }]);
+    setMessage("");
+
+    try {
+
+      const res = await fetch("/api/ai/journey-map-chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          projectId,
+          personaId: selectedPersona,
+          message: userMsg,
+          journeyMap: journey
+        })
+      });
+
+      const data = await res.json();
+
+      if (data.type === "update") {
+
+        setJourney(data.data);
+
+        if (data.data.stages?.length > 0) {
+          setColumns(Object.keys(data.data.stages[0]));
+        }
+
+        setChat((c) => [
+          ...c,
+          { role: "assistant", text: "Journey map updated." }
+        ]);
+
+      } else {
+
+        setChat((c) => [
+          ...c,
+          { role: "assistant", text: data.message || "AI responded." }
+        ]);
+
+      }
+
+    } catch (error) {
+      console.error("Chat failed", error);
+    }
+
+  }
+
+  /* ========================= */
+  /* Enter Send Logic          */
+  /* ========================= */
+
+  function handleKeyDown(
+    e: React.KeyboardEvent<HTMLTextAreaElement>
+  ) {
+
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      send();
+    }
+
+  }
+
+  /* ========================= */
+  /* UI                        */
   /* ========================= */
 
   return (
-    <div className="p-6 text-white">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-xl font-semibold">Journey Map</h2>
+
+    <div className="space-y-6">
+
+      {/* Header */}
+
+      <div className="flex justify-between items-center">
+
+        <h2 className="text-lg font-semibold">
+          User Journey Map
+        </h2>
 
         <button
-          onClick={generateJourney}
-          disabled={loading || !selectedPersona}
-          className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg"
+          onClick={generate}
+          className="px-4 py-2 bg-blue-600 rounded-lg text-sm"
         >
-          {loading ? "Generating..." : "Generate Journey"}
+          {loading ? "Generating..." : "Generate Journey Map"}
         </button>
+
       </div>
 
       {/* Persona Dropdown */}
-      {personas.length > 0 && (
+
+      <div className="max-w-sm">
+
+        <label className="text-sm text-neutral-400 mb-1 block">
+          Select Persona
+        </label>
+
         <select
-          value={selectedPersona || ""}
+          value={selectedPersona}
           onChange={(e) => setSelectedPersona(e.target.value)}
-          className="mb-6 bg-gray-800 border border-gray-700 p-2 rounded-lg"
+          className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-3 py-2 text-sm"
         >
+
           {personas.map((p) => (
             <option key={p.id} value={p.id}>
               {p.name}
             </option>
           ))}
+
         </select>
-      )}
 
-      {/* Empty State */}
-      {!journey && (
-        <p className="text-gray-400">
-          No journey map found. Click Generate Journey.
-        </p>
-      )}
+      </div>
 
-      {/* Journey Display */}
-      {journey && journey.stages && (
-        <div className="space-y-8">
-          {journey.stages.map((stage, index) => (
-            <div
-              key={index}
-              className="bg-gray-900 border border-gray-800 p-6 rounded-xl"
-            >
-              <h3 className="text-lg font-semibold mb-4">
-                {stage.stage}
-              </h3>
+      {/* Journey Table */}
 
-              <div className="grid md:grid-cols-2 gap-6">
+      {journey?.stages && (
 
-                <div>
-                  <h4 className="font-medium mb-2 text-blue-400">
-                    User Actions
-                  </h4>
-                  <ul className="list-disc ml-5 text-sm space-y-1">
-                    {stage.user_actions?.map((item, i) => (
-                      <li key={i}>{item}</li>
-                    ))}
-                  </ul>
-                </div>
+        <div className="overflow-x-auto">
 
-                <div>
-                  <h4 className="font-medium mb-2 text-purple-400">
-                    User Thoughts
-                  </h4>
-                  <ul className="list-disc ml-5 text-sm space-y-1">
-                    {stage.user_thoughts?.map((item, i) => (
-                      <li key={i}>{item}</li>
-                    ))}
-                  </ul>
-                </div>
+          <table className="w-full border border-neutral-800 text-sm">
 
-                <div>
-                  <h4 className="font-medium mb-2 text-red-400">
-                    Pain Points
-                  </h4>
-                  <ul className="list-disc ml-5 text-sm space-y-1">
-                    {stage.pain_points?.map((item, i) => (
-                      <li key={i}>{item}</li>
-                    ))}
-                  </ul>
-                </div>
+            <thead>
 
-                <div>
-                  <h4 className="font-medium mb-2 text-green-400">
-                    Opportunities
-                  </h4>
-                  <ul className="list-disc ml-5 text-sm space-y-1">
-                    {stage.opportunities?.map((item, i) => (
-                      <li key={i}>{item}</li>
-                    ))}
-                  </ul>
-                </div>
+              <tr className="bg-neutral-900">
 
-              </div>
-            </div>
-          ))}
+                {columns.map((col) => (
+                  <th
+                    key={col}
+                    className="p-3 border border-neutral-800 capitalize"
+                  >
+                    {col}
+                  </th>
+                ))}
+
+              </tr>
+
+            </thead>
+
+            <tbody>
+
+              {journey.stages.map((stage, i) => (
+
+                <tr key={i}>
+
+                  {columns.map((col) => (
+
+                    <td
+                      key={col}
+                      className="p-3 border border-neutral-800"
+                    >
+                      {stage[col] ?? "-"}
+                    </td>
+
+                  ))}
+
+                </tr>
+
+              ))}
+
+            </tbody>
+
+          </table>
+
         </div>
+
       )}
+
+      {/* Chat Assistant */}
+
+      <div className="rounded-xl border border-neutral-800 overflow-hidden">
+
+        <div className="px-4 py-3 border-b border-neutral-800 flex items-center gap-2">
+
+          <span>💬</span>
+          <span className="font-medium">
+            Journey Assistant
+          </span>
+
+        </div>
+
+        <div className="p-6 space-y-4 max-h-87.5 overflow-y-auto">
+
+          {chat.map((m, i) => (
+
+            <div
+              key={i}
+              className={`flex ${
+                m.role === "user"
+                  ? "justify-end"
+                  : "justify-start"
+              }`}
+            >
+
+              <div
+                className={`max-w-[70%] px-4 py-3 rounded-xl text-sm ${
+                  m.role === "user"
+                    ? "bg-blue-600 text-white"
+                    : "bg-neutral-800 text-neutral-200"
+                }`}
+              >
+                {m.text}
+              </div>
+
+            </div>
+
+          ))}
+
+        </div>
+
+        <div className="border-t border-neutral-800 p-4 flex gap-3">
+
+          <textarea
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Modify the journey map..."
+            className="flex-1 bg-neutral-900 border border-neutral-700 rounded-lg px-4 py-2 text-sm resize-none"
+          />
+
+          <button
+            onClick={send}
+            className="px-6 py-2 bg-blue-600 rounded-lg text-sm"
+          >
+            Send
+          </button>
+
+        </div>
+
+      </div>
+
     </div>
+
   );
+
 }

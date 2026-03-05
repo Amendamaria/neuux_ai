@@ -5,30 +5,40 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 export default function AuthCallbackPage() {
+
   const router = useRouter();
 
   useEffect(() => {
-    const run = async () => {
+
+    const handleAuth = async () => {
+
       const supabase = createClient();
 
+      // get session from Supabase
       const {
         data: { session },
       } = await supabase.auth.getSession();
 
-      if (!session) {
-        router.replace("/auth/login");
+      if (session) {
+        // OAuth login (Google)
+        router.replace("/dashboard");
         return;
       }
 
-      router.replace("/dashboard");
+      // Email confirmation flow
+      await supabase.auth.signOut();
+
+      router.replace("/auth/login");
+
     };
 
-    run();
+    handleAuth();
+
   }, [router]);
 
   return (
     <div className="min-h-screen flex items-center justify-center text-white">
-      Signing you in...
+      Verifying authentication...
     </div>
   );
 }

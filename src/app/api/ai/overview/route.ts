@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import OpenAI from "openai";
+import { aiChat } from "@/lib/ai";
 
 type OverviewPayload = {
   summary: string;
   problem_statement: string;
   ux_objectives: string;
-  success_metrics: string; // stored as TEXT
+  success_metrics: string;
 };
 
 type AIOverviewResponse = {
@@ -19,14 +19,13 @@ type AIOverviewResponse = {
 export async function POST(req: Request) {
   try {
     const {
-      GITHUB_TOKEN,
       NEXT_PUBLIC_SUPABASE_URL,
       SUPABASE_SERVICE_ROLE_KEY,
     } = process.env;
 
-    if (!GITHUB_TOKEN || !NEXT_PUBLIC_SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+    if (!NEXT_PUBLIC_SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
       return NextResponse.json(
-        { success: false, error: "Missing environment variables" },
+        { success: false, error: "Missing Supabase environment variables" },
         { status: 500 }
       );
     }
@@ -36,11 +35,6 @@ export async function POST(req: Request) {
       SUPABASE_SERVICE_ROLE_KEY
     );
 
-    const openai = new OpenAI({
-      apiKey: GITHUB_TOKEN,
-      baseURL: "https://models.inference.ai.azure.com",
-    });
-
     const { projectId, feedback } = await req.json();
 
     if (!projectId || !feedback) {
@@ -49,6 +43,8 @@ export async function POST(req: Request) {
         { status: 400 }
       );
     }
+
+    /* ================= FETCH PROJECT ================= */
 
     const { data: project } = await supabase
       .from("projects")
@@ -77,11 +73,13 @@ export async function POST(req: Request) {
       lower.includes("complete") ||
       lower.includes("regenerate");
 
-    // ================= FULL GENERATION =================
+    /* ================================================= */
+    /*                FULL GENERATION                    */
+    /* ================================================= */
 
     if (isFull || !existingOverview) {
       const prompt = `
-Generate a complete professional UX overview.
+Generate a professional UX project overview.
 
 Return ONLY valid JSON in this format:
 
@@ -99,41 +97,32 @@ Target Users: ${project.target_users}
 Goal: ${project.goal}
 `;
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o", // change if needed
-        temperature: 0.7,
-        messages: [
-          {
-            role: "system",
-            content:
-              "You are a senior UX strategist. Return valid JSON only. No markdown.",
-          },
-          { role: "user", content: prompt },
-        ],
-      });
+      let aiText = await aiChat([
+        {
+          role: "system",
+          content: "You are a senior UX strategist. Return valid JSON only.",
+        },
+        {
+          role: "user",
+          content: prompt,
+        },
+      ]);
 
-      const aiText = response.choices?.[0]?.message?.content?.trim();
+      /* ================= SAFE JSON PARSE ================= */
 
-      if (!aiText) {
+      aiText = aiText.replace(/```json/g, "").replace(/```/g, "").trim();
+
+      const jsonMatch = aiText.match(/\{[\s\S]*\}/);
+
+      if (!jsonMatch) {
         return NextResponse.json(
-          { success: false, error: "AI returned empty response" },
+          { success: false, error: "AI response parsing failed" },
           { status: 500 }
         );
       }
 
-      let parsed: AIOverviewResponse;
+      const parsed = JSON.parse(jsonMatch[0]) as AIOverviewResponse;
 
-      try {
-        parsed = JSON.parse(aiText) as AIOverviewResponse;
-      } catch (error) {
-        console.error("Invalid JSON from AI:", error);
-        return NextResponse.json(
-          { success: false, error: "AI returned invalid JSON" },
-          { status: 500 }
-        );
-      }
-
-      // Convert success_metrics → TEXT (newline separated)
       const successMetricsText = Array.isArray(parsed.success_metrics)
         ? parsed.success_metrics.join("\n")
         : parsed.success_metrics ?? "";
@@ -152,7 +141,6 @@ Goal: ${project.goal}
         );
 
       if (error) {
-        console.error("Supabase error:", error);
         return NextResponse.json(
           { success: false, error: error.message },
           { status: 500 }
@@ -169,11 +157,14 @@ Goal: ${project.goal}
       return NextResponse.json({
         success: true,
         type: "full",
+        message: "New overview generated successfully.",
         updatedOverview: finalOverview,
       });
     }
 
-    // ================= PARTIAL UPDATE =================
+    /* ================================================= */
+    /*                PARTIAL UPDATE                     */
+    /* ================================================= */
 
     let targetSection: keyof OverviewPayload | null = null;
 
@@ -198,49 +189,39 @@ Description: ${project.description}
 Target Users: ${project.target_users}
 Goal: ${project.goal}
 
+User feedback: "${feedback}"
+
 Return improved text only.
 `;
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      temperature: 0.7,
-      messages: [
-        {
-          role: "system",
-          content:
-            "You are a senior UX strategist. Improve the requested section only.",
-        },
-        { role: "user", content: prompt },
-      ],
-    });
+    const aiText = await aiChat([
+      {
+        role: "system",
+        content: "You are a senior UX strategist.",
+      },
+      {
+        role: "user",
+        content: prompt,
+      },
+    ]);
 
-    let aiText = response.choices?.[0]?.message?.content?.trim();
-
-    if (!aiText) {
-      return NextResponse.json(
-        { success: false, error: "AI failed to update section" },
-        { status: 500 }
-      );
-    }
+    let updatedText = aiText.trim();
 
     if (targetSection === "success_metrics") {
       try {
-        const parsedArray = JSON.parse(aiText);
+        const parsedArray = JSON.parse(updatedText);
         if (Array.isArray(parsedArray)) {
-          aiText = parsedArray.join("\n");
+          updatedText = parsedArray.join("\n");
         }
-      } catch {
-        // keep as text
-      }
+      } catch {}
     }
 
     const { error } = await supabase
       .from("project_overview")
-      .update({ [targetSection]: aiText })
+      .update({ [targetSection]: updatedText })
       .eq("project_id", projectId);
 
     if (error) {
-      console.error("Supabase error:", error);
       return NextResponse.json(
         { success: false, error: error.message },
         { status: 500 }
@@ -250,11 +231,14 @@ Return improved text only.
     return NextResponse.json({
       success: true,
       type: "partial",
+      message: `Updated ${targetSection.replace("_", " ")}.`,
       section: targetSection,
-      content: aiText,
+      content: updatedText,
     });
+
   } catch (error) {
-    console.error("Server Error:", error);
+    console.error("Overview AI Error:", error);
+
     return NextResponse.json(
       { success: false, error: "Server error" },
       { status: 500 }
