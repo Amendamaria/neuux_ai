@@ -73,7 +73,7 @@ export default function ProjectPage() {
               onClick={() => setActiveTab(tab)}
               className={`text-left px-4 py-3 rounded-lg text-sm capitalize transition ${
                 activeTab === tab
-                  ? "bg-white text-black"
+                  ? "bg-neutral-800 text-white"
                   : "text-neutral-400 hover:bg-neutral-800 hover:text-white"
               }`}
             >

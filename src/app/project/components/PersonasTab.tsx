@@ -140,7 +140,7 @@ export default function PersonasTab({
                 className={`cursor-pointer rounded-xl p-6 space-y-4 border transition
                   ${
                     isActive
-                      ? "bg-blue-600/10 border-blue-500"
+                      ? "bg-primary/10 border-primary"
                       : "bg-neutral-900 border-neutral-800 hover:border-neutral-600"
                   }
                 `}

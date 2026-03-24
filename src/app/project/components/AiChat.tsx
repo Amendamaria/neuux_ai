@@ -146,7 +146,7 @@ export default function AiChat({ projectId, module, onUpdate }: Props) {
             <div
               className={`max-w-[70%] px-4 py-3 rounded-2xl text-sm whitespace-pre-wrap ${
                 msg.role === "user"
-                  ? "bg-blue-600 text-white"
+                  ? "bg-primary text-white"
                   : "bg-neutral-800 text-neutral-200"
               }`}
             >
@@ -177,13 +177,13 @@ export default function AiChat({ projectId, module, onUpdate }: Props) {
           }}
           placeholder={`Ask AI about ${module}...`}
           rows={1}
-          className="flex-1 resize-none bg-neutral-800 px-4 py-3 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500"
+          className="flex-1 resize-none bg-neutral-800 px-4 py-3 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary"
         />
 
         <button
           onClick={sendMessage}
           disabled={isSending}
-          className="bg-blue-500 hover:bg-blue-600 px-6 py-3 rounded-xl text-sm disabled:opacity-50"
+          className="bg-primary hover:bg-primary/60 px-6 py-3 rounded-xl text-sm disabled:opacity-50"
         >
           Send
         </button>

@@ -246,7 +246,7 @@ export default function UserFlowTab({ projectId }: Props) {
 
         <button
           onClick={generateFlow}
-          className="px-4 py-2 bg-blue-600 rounded-lg text-sm"
+          className="px-4 py-2 bg-primary rounded-lg text-sm"
         >
           {loading ? "Generating..." : "Generate Flow"}
         </button>
@@ -293,7 +293,7 @@ export default function UserFlowTab({ projectId }: Props) {
               <div
                 className={`max-w-[70%] px-4 py-3 rounded-xl text-sm ${
                   m.role === "user"
-                    ? "bg-blue-600 text-white"
+                    ? "bg-primary text-white"
                     : "bg-neutral-800 text-neutral-200"
                 }`}
               >
@@ -316,7 +316,7 @@ export default function UserFlowTab({ projectId }: Props) {
 
           <button
             onClick={sendMessage}
-            className="px-6 py-2 bg-blue-600 rounded-lg text-sm"
+            className="px-6 py-2 bg-primary rounded-lg text-sm"
           >
             Send
           </button>
