@@ -49,102 +49,75 @@ export default function UserFlowTab({ projectId }: Props) {
   /* Convert AI Flow           */
   /* ========================= */
 
- function convertFlow(flowData: FlowData) {
+  function convertFlow(flowData: FlowData) {
 
-  if (!flowData?.nodes || !flowData?.edges) return;
+    if (!flowData?.nodes || !flowData?.edges) return;
 
-  const rfNodes: Node[] = flowData.nodes.map((n, i) => ({
-    id: n.id,
-    data: { label: n.label },
-    position: { x: 200 * i, y: 120 * i },
-  }));
+    const spacingX = 250;
+    const spacingY = 120;
 
-  const rfEdges: Edge[] = flowData.edges.map((e, i) => ({
-    id: "e" + i,
-    source: e.from,
-    target: e.to,
-  }));
+    const rfNodes: Node[] = flowData.nodes.map((n, i) => ({
+      id: n.id,
+      data: { label: n.label },
+      position: {
+        x: (i % 3) * spacingX,
+        y: Math.floor(i / 3) * spacingY,
+      },
+    }));
 
-  setNodes(rfNodes);
-  setEdges(rfEdges);
-}
+    const rfEdges: Edge[] = flowData.edges.map((e, i) => ({
+      id: "e" + i,
+      source: e.from,
+      target: e.to,
+      animated: true,
+    }));
+
+    setNodes(rfNodes);
+    setEdges(rfEdges);
+  }
 
   /* ========================= */
-  /* Load saved flow           */
+  /* Load Flow + Chat          */
   /* ========================= */
 
   useEffect(() => {
 
-    async function fetchFlow() {
+    async function fetchAll() {
 
       try {
 
         const res = await fetch(`/api/userflow?projectId=${projectId}`);
         const data = await res.json();
 
-        if (data.success && data.data) {
+        if (!data.success) return;
 
-          const savedFlow: FlowData = data.data;
+        /* ===== Flow ===== */
+        if (data.flow) {
+          setFlow(data.flow);
+          convertFlow(data.flow);
+        }
 
-          setFlow(savedFlow);
-          convertFlow(savedFlow);
-
+        /* ===== Chat ===== */
+        if (Array.isArray(data.chat)) {
+          const formatted = data.chat.map(
+            (m: { role: "user" | "assistant"; message: string }) => ({
+              role: m.role,
+              text: m.message
+            })
+          );
+          setChat(formatted);
         }
 
       } catch (err) {
-        console.error("Failed to load saved flow", err);
+        console.error("Failed to load userflow data", err);
       }
 
     }
 
-    if (projectId) fetchFlow();
+    if (projectId) fetchAll();
 
   }, [projectId]);
 
-  /* ========================= */
-  /* Load Chat History         */
-  /* ========================= */
-
- /* ========================= */
-/* Load Chat History         */
-/* ========================= */
-
-useEffect(() => {
-
-  async function fetchChat() {
-
-    try {
-
-      const res = await fetch(
-        `/api/userflow?projectId=${projectId}`
-      );
-
-      if (!res.ok) return;
-
-      const data = await res.json();
-
-      if (data.success && Array.isArray(data.data)) {
-
-        const formatted = data.data.map(
-          (m: { role: "user" | "assistant"; message: string }) => ({
-            role: m.role,
-            text: m.message
-          })
-        );
-
-        setChat(formatted);
-
-      }
-
-    } catch (err) {
-      console.error("Failed to load chat history", err);
-    }
-
-  }
-
-  if (projectId) fetchChat();
-
-}, [projectId]);
   /* ========================= */
   /* Generate Flow             */
   /* ========================= */
@@ -171,6 +144,11 @@ useEffect(() => {
 
         setFlow(generatedFlow);
         convertFlow(generatedFlow);
+
+        setChat((c) => [
+          ...c,
+          { role: "assistant", text: "User flow generated successfully." },
+        ]);
 
       }
 
@@ -261,9 +239,7 @@ useEffect(() => {
     <div className="space-y-6">
 
       {/* Header */}
-
       <div className="flex items-center justify-between">
-
         <h2 className="text-lg font-semibold">
           UI User Flow
         </h2>
@@ -274,23 +250,26 @@ useEffect(() => {
         >
           {loading ? "Generating..." : "Generate Flow"}
         </button>
-
       </div>
 
       {/* Flow Diagram */}
-
       <div className="h-125 border border-neutral-800 rounded-xl overflow-hidden">
 
-        <ReactFlow nodes={nodes} edges={edges} fitView>
-          <MiniMap />
-          <Controls />
-          <Background />
-        </ReactFlow>
+        {nodes.length === 0 ? (
+          <div className="flex items-center justify-center h-full text-neutral-500 text-sm">
+            No flow yet. Click Generate Flow
+          </div>
+        ) : (
+          <ReactFlow nodes={nodes} edges={edges} fitView>
+            <MiniMap />
+            <Controls />
+            <Background />
+          </ReactFlow>
+        )}
 
       </div>
 
       {/* Chat Assistant */}
-
       <div className="rounded-xl border border-neutral-800 overflow-hidden">
 
         <div className="px-4 py-3 border-b border-neutral-800 flex items-center gap-2">
@@ -303,7 +282,6 @@ useEffect(() => {
         <div className="p-6 space-y-4 max-h-87.5 overflow-y-auto">
 
           {chat.map((m, i) => (
-
             <div
               key={i}
               className={`flex ${
@@ -312,7 +290,6 @@ useEffect(() => {
                   : "justify-start"
               }`}
             >
-
               <div
                 className={`max-w-[70%] px-4 py-3 rounded-xl text-sm ${
                   m.role === "user"
@@ -322,9 +299,7 @@ useEffect(() => {
               >
                 {m.text}
               </div>
-
             </div>
-
           ))}
 
         </div>

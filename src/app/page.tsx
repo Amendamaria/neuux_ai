@@ -1,12 +1,60 @@
-import Link from "next/link"
-import Image from "next/image"
-import { Button } from "@/components/ui/button"
-import { ArrowRight } from "lucide-react"
-import { Input } from "@/components/ui/input"
-import { Spotlight, SpotLightItem } from "@/components/ui/spotlight"
+"use client";
+
+import { useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
+import { useRouter } from "next/navigation";
+
+import Link from "next/link";
+import Image from "next/image";
+import { Button } from "@/components/ui/button";
+import { ArrowRight } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Spotlight, SpotLightItem } from "@/components/ui/spotlight";
 
 export default function Home() {
-    const year = new Date().getFullYear()
+    const year = new Date().getFullYear();
+
+    const supabase = createClient();
+    const router = useRouter();
+
+    const [loading, setLoading] = useState(true);
+
+    /* ========================= */
+    /* AUTH CHECK (NEW)          */
+    /* ========================= */
+
+    useEffect(() => {
+        async function checkUser() {
+            const {
+                data: { session },
+            } = await supabase.auth.getSession();
+
+            if (session) {
+                router.replace("/dashboard"); // 🔥 redirect if logged in
+            } else {
+                setLoading(false);
+            }
+        }
+
+        checkUser();
+    }, [supabase, router]);
+
+    /* ========================= */
+    /* PREVENT FLICKER           */
+    /* ========================= */
+
+    if (loading) {
+        return (
+            <div className="h-screen flex items-center justify-center bg-black text-white">
+                Loading...
+            </div>
+        );
+    }
+
+    /* ========================= */
+    /* ORIGINAL UI (UNCHANGED)   */
+    /* ========================= */
+
     return (
         <main className="min-h-screen">
             <section className="min-h-screen flex flex-col items-center justify-center px-4">
@@ -32,7 +80,6 @@ export default function Home() {
                                 <ArrowRight className="w-5 h-5" />
                             </Link>
                         </Button>
-
                     </div>
 
                     {/* Demo Chat Card */}
