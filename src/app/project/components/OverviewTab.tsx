@@ -8,11 +8,17 @@ type Props = {
   projectId: string;
 };
 
+// ✅ Flexible type (supports both string + array)
+type Metric = {
+  title: string;
+  value: string;
+};
+
 type Overview = {
   summary: string;
   problem_statement: string;
   ux_objectives: string;
-  success_metrics: string;
+  success_metrics: string | Metric[]; // ✅ FIX
 };
 
 export default function OverviewTab({ projectId }: Props) {
@@ -83,7 +89,7 @@ function Section({
   value,
 }: {
   title: string;
-  value?: string;
+  value?: string | { title: string; value: string }[];
 }) {
   if (!value) {
     return (
@@ -100,13 +106,26 @@ function Section({
   return (
     <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6">
 
-      <h3 className="text-sm font-semibold mb-2">
+      <h3 className="text-sm font-semibold mb-3">
         {title}
       </h3>
 
-      <p className="text-sm text-neutral-300 whitespace-pre-wrap">
-        {value}
-      </p>
+      {/* ✅ Handle structured success metrics */}
+      {Array.isArray(value) ? (
+        <ul className="space-y-2">
+          {value.map((item, index) => (
+            <li key={index} className="text-sm text-neutral-300">
+              <span className="font-medium">{item.title}</span>
+              {" — "}
+              {item.value}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-sm text-neutral-300 whitespace-pre-wrap">
+          {value}
+        </p>
+      )}
 
     </div>
   );

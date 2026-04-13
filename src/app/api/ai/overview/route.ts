@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { aiChat } from "@/lib/ai";
+import { aiChat, ChatMessage } from "@/lib/ai";
 
 type OverviewPayload = {
   summary: string;
@@ -9,12 +9,42 @@ type OverviewPayload = {
   success_metrics: string;
 };
 
-type AIOverviewResponse = {
-  summary: string;
-  problem_statement: string;
-  ux_objectives: string;
-  success_metrics: string[] | string;
-};
+/* ================= SYSTEM PROMPT ================= */
+
+const BASE_SYSTEM_PROMPT = `
+You are a UX expert assistant.
+
+Behave like ChatGPT:
+- Natural, human conversation
+- Understand context from previous messages
+- Continue the flow naturally
+- If user says "elaborate", expand your previous answer
+- Stay relevant to the conversation
+
+Avoid:
+- JSON
+- structured outputs
+- robotic tone
+
+Be clear, helpful, and conversational.
+`;
+
+/* ================= CLEAN RESPONSE ================= */
+
+function cleanResponse(text: string): string {
+  if (!text) return "";
+
+  const noJson = text.replace(/\{[\s\S]*?\}/g, "");
+
+  const cleaned = noJson
+    .replace(/"field":.*?,?/gi, "")
+    .replace(/"new_value":.*?/gi, "")
+    .replace(/[\{\}\[\]"]/g, "");
+
+  return cleaned.trim();
+}
+
+/* ================= MAIN ================= */
 
 export async function POST(req: Request) {
   try {
@@ -25,7 +55,7 @@ export async function POST(req: Request) {
 
     if (!NEXT_PUBLIC_SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
       return NextResponse.json(
-        { success: false, error: "Missing Supabase environment variables" },
+        { success: false, error: "Missing env variables" },
         { status: 500 }
       );
     }
@@ -35,21 +65,47 @@ export async function POST(req: Request) {
       SUPABASE_SERVICE_ROLE_KEY
     );
 
-    const { projectId, feedback } = await req.json();
+    const body: unknown = await req.json();
 
-    if (!projectId || !feedback) {
+    if (
+      typeof body !== "object" ||
+      body === null ||
+      !("projectId" in body) ||
+      !("messages" in body)
+    ) {
       return NextResponse.json(
-        { success: false, error: "Missing projectId or feedback" },
+        { success: false, error: "Invalid input" },
         { status: 400 }
       );
     }
 
-    /* ================= FETCH PROJECT ================= */
+    const { projectId, messages } = body as {
+      projectId: string;
+      messages: ChatMessage[];
+    };
+
+    if (!projectId || !messages || messages.length === 0) {
+      return NextResponse.json(
+        { success: false, error: "Invalid input" },
+        { status: 400 }
+      );
+    }
+
+    const latestMessage =
+      messages[messages.length - 1]?.content?.toLowerCase() || "";
+
+    /* ================= FETCH ================= */
 
     const { data: project } = await supabase
       .from("projects")
       .select("*")
       .eq("id", projectId)
+      .maybeSingle();
+
+    const { data: overview } = await supabase
+      .from("project_overview")
+      .select("*")
+      .eq("project_id", projectId)
       .maybeSingle();
 
     if (!project) {
@@ -59,185 +115,126 @@ export async function POST(req: Request) {
       );
     }
 
-    const { data: existingOverview } = await supabase
-      .from("project_overview")
-      .select("*")
-      .eq("project_id", projectId)
-      .maybeSingle();
+    /* ================= INTENT (KEEP EXISTING FEATURE) ================= */
 
-    const lower = feedback.toLowerCase();
+    const isUpdate =
+      /(modify|update|improve|change|edit|rewrite)/.test(latestMessage);
 
     const isFull =
-      lower.includes("full") ||
-      lower.includes("entire") ||
-      lower.includes("complete") ||
-      lower.includes("regenerate");
+      /(full|entire|complete|regenerate)/.test(latestMessage);
 
-    /* ================================================= */
-    /*                FULL GENERATION                    */
-    /* ================================================= */
+    let targetSection: keyof OverviewPayload | null = null;
 
-    if (isFull || !existingOverview) {
-      const prompt = `
-Generate a professional UX project overview.
+    if (latestMessage.includes("success"))
+      targetSection = "success_metrics";
+    else if (latestMessage.includes("summary"))
+      targetSection = "summary";
+    else if (latestMessage.includes("problem"))
+      targetSection = "problem_statement";
+    else if (latestMessage.includes("objective"))
+      targetSection = "ux_objectives";
 
-Return ONLY valid JSON in this format:
+    /* ================= FULL GENERATION ================= */
 
-{
-  "summary": "",
-  "problem_statement": "",
-  "ux_objectives": "",
-  "success_metrics": []
-}
-
-Project:
-Name: ${project.name}
-Description: ${project.description}
-Target Users: ${project.target_users}
-Goal: ${project.goal}
-`;
-
-      let aiText = await aiChat([
-        {
-          role: "system",
-          content: "You are a senior UX strategist. Return valid JSON only.",
-        },
+    if (isFull || !overview) {
+      const aiText = await aiChat([
+        { role: "system", content: BASE_SYSTEM_PROMPT },
         {
           role: "user",
-          content: prompt,
+          content: `
+Create a UX project overview:
+
+Project: ${project.name}
+Description: ${project.description}
+Users: ${project.target_users}
+Goal: ${project.goal}
+
+Write it like a case study. No JSON.
+`,
         },
       ]);
 
-      /* ================= SAFE JSON PARSE ================= */
+      const clean = cleanResponse(aiText);
 
-      aiText = aiText.replace(/```json/g, "").replace(/```/g, "").trim();
-
-      const jsonMatch = aiText.match(/\{[\s\S]*\}/);
-
-      if (!jsonMatch) {
-        return NextResponse.json(
-          { success: false, error: "AI response parsing failed" },
-          { status: 500 }
-        );
-      }
-
-      const parsed = JSON.parse(jsonMatch[0]) as AIOverviewResponse;
-
-      const successMetricsText = Array.isArray(parsed.success_metrics)
-        ? parsed.success_metrics.join("\n")
-        : parsed.success_metrics ?? "";
-
-      const { error } = await supabase
-        .from("project_overview")
-        .upsert(
-          {
-            project_id: projectId,
-            summary: parsed.summary,
-            problem_statement: parsed.problem_statement,
-            ux_objectives: parsed.ux_objectives,
-            success_metrics: successMetricsText,
-          },
-          { onConflict: "project_id" }
-        );
-
-      if (error) {
-        return NextResponse.json(
-          { success: false, error: error.message },
-          { status: 500 }
-        );
-      }
-
-      const finalOverview: OverviewPayload = {
-        summary: parsed.summary,
-        problem_statement: parsed.problem_statement,
-        ux_objectives: parsed.ux_objectives,
-        success_metrics: successMetricsText,
-      };
+      await supabase.from("project_overview").upsert({
+        project_id: projectId,
+        summary: clean,
+      });
 
       return NextResponse.json({
         success: true,
         type: "full",
-        message: "New overview generated successfully.",
-        updatedOverview: finalOverview,
+        content: clean,
       });
     }
 
-    /* ================================================= */
-    /*                PARTIAL UPDATE                     */
-    /* ================================================= */
+    /* ================= UPDATE SECTION ================= */
 
-    let targetSection: keyof OverviewPayload | null = null;
+    if (isUpdate && targetSection && overview) {
+      const aiText = await aiChat([
+        { role: "system", content: BASE_SYSTEM_PROMPT },
+        ...messages.slice(-10),
+      ]);
 
-    if (lower.includes("problem")) targetSection = "problem_statement";
-    else if (lower.includes("objective")) targetSection = "ux_objectives";
-    else if (lower.includes("metric")) targetSection = "success_metrics";
-    else if (lower.includes("summary")) targetSection = "summary";
+      const clean = cleanResponse(aiText);
 
-    if (!targetSection) {
-      return NextResponse.json(
-        { success: false, error: "Could not detect section" },
-        { status: 400 }
-      );
+      await supabase
+        .from("project_overview")
+        .update({ [targetSection]: clean })
+        .eq("project_id", projectId);
+
+      return NextResponse.json({
+        success: true,
+        type: "update",
+        content: clean,
+      });
     }
 
-    const prompt = `
-Improve ONLY this section: ${targetSection}
+    /* ================= CHAT (FIXED FLOW) ================= */
 
-Project:
-Name: ${project.name}
-Description: ${project.description}
-Target Users: ${project.target_users}
-Goal: ${project.goal}
-
-User feedback: "${feedback}"
-
-Return improved text only.
-`;
-
-    const aiText = await aiChat([
+    const chatMessages: ChatMessage[] = [
       {
         role: "system",
-        content: "You are a senior UX strategist.",
+        content: BASE_SYSTEM_PROMPT,
       },
       {
-        role: "user",
-        content: prompt,
+        role: "system",
+        content: `
+Project context:
+
+Name: ${project.name}
+Description: ${project.description}
+Users: ${project.target_users}
+Goal: ${project.goal}
+
+${
+  overview
+    ? `Existing overview:
+${overview.summary}`
+    : ""
+}
+`,
       },
-    ]);
 
-    let updatedText = aiText.trim();
+      // 🔥 THIS is the key — full conversation
+      ...messages.slice(-20),
+    ];
 
-    if (targetSection === "success_metrics") {
-      try {
-        const parsedArray = JSON.parse(updatedText);
-        if (Array.isArray(parsedArray)) {
-          updatedText = parsedArray.join("\n");
-        }
-      } catch {}
-    }
+    const aiText = await aiChat(chatMessages);
 
-    const { error } = await supabase
-      .from("project_overview")
-      .update({ [targetSection]: updatedText })
-      .eq("project_id", projectId);
-
-    if (error) {
-      return NextResponse.json(
-        { success: false, error: error.message },
-        { status: 500 }
-      );
-    }
+    const clean = cleanResponse(aiText);
 
     return NextResponse.json({
       success: true,
-      type: "partial",
-      message: `Updated ${targetSection.replace("_", " ")}.`,
-      section: targetSection,
-      content: updatedText,
+      type: "chat",
+      content: clean,
     });
 
-  } catch (error) {
-    console.error("Overview AI Error:", error);
+  } catch (error: unknown) {
+    const message =
+      error instanceof Error ? error.message : "Unknown error";
+
+    console.error("Overview API Error:", message);
 
     return NextResponse.json(
       { success: false, error: "Server error" },
