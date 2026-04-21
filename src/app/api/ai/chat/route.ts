@@ -1,204 +1,161 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { aiChat } from "@/lib/ai";
-type Persona = {
-  name: string;
-  age: string;
-  occupation: string;
-  location: string;
-  background: string;
-  goals: string;
-  pain_points: string;
-  motivations: string;
-  tech_usage: string;
-  quote: string;
-};
-type PersonaUpdate = {
-  persona_name: string;
-  field: string;
-  new_value: string;
-};
+
+// ================= PARSER =================
+
+function parseOverview(text: string) {
+  const cleaned = text.replace(/\*\*/g, "").trim();
+
+  const sections = {
+    summary: "",
+    problem_statement: "",
+    ux_objectives: "",
+    success_metrics: "",
+  };
+
+  const lines = cleaned.split("\n");
+
+  let current: keyof typeof sections | null = null;
+
+  for (const line of lines) {
+    const l = line.toLowerCase().trim();
+
+    if (l.startsWith("summary")) {
+      current = "summary";
+      continue;
+    }
+    if (l.startsWith("problem statement")) {
+      current = "problem_statement";
+      continue;
+    }
+    if (l.startsWith("ux objectives")) {
+      current = "ux_objectives";
+      continue;
+    }
+    if (l.startsWith("success metrics")) {
+      current = "success_metrics";
+      continue;
+    }
+
+    if (current) {
+      sections[current] += line + "\n";
+    }
+  }
+
+  return {
+    summary: sections.summary.trim(),
+    problem_statement: sections.problem_statement.trim(),
+    ux_objectives: sections.ux_objectives.trim(),
+    success_metrics: sections.success_metrics.trim(),
+  };
+}
+
+// ================= API =================
+
 export async function POST(req: Request) {
   try {
-    const {
-      NEXT_PUBLIC_SUPABASE_URL,
-      SUPABASE_SERVICE_ROLE_KEY,
-    } = process.env;
-    if (!NEXT_PUBLIC_SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+    const body = await req.json();
+    const { projectId, messages } = body;
+
+    if (!projectId) {
       return NextResponse.json(
-        { success: false, error: "Missing environment variables" },
-        { status: 500 }
-      );
-    }
-    const { projectId, activeTab, message } = await req.json();
-    if (!projectId || !activeTab || !message) {
-      return NextResponse.json(
-        { success: false, error: "Missing required fields" },
+        { success: false, error: "Invalid input" },
         { status: 400 }
       );
     }
+
     const supabase = createClient(
-      NEXT_PUBLIC_SUPABASE_URL,
-      SUPABASE_SERVICE_ROLE_KEY
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
+
     const { data: project } = await supabase
       .from("projects")
       .select("*")
       .eq("id", projectId)
       .maybeSingle();
+
     if (!project) {
       return NextResponse.json(
         { success: false, error: "Project not found" },
         { status: 404 }
       );
     }
-    if (activeTab === "overview") {
-      const prompt = `
-You are a UX strategist helping improve a UX project overview.
-Project:
-${JSON.stringify(project, null, 2)}
-User request:
-${message}
-Rules:
-1. If the user asks to modify a section (summary, problem_statement, ux_objectives, success_metrics),
-   return ONLY this structure:
-{
- "field": "section_name",
- "new_value": "updated text"
-}
-2. Do NOT explain that you are returning JSON.
-3. Do NOT ask for confirmation.
-4. Do NOT include any extra text.
-5. If the user is asking for advice, explanation, or suggestions, respond normally in plain text.
-`;
-      let aiText = await aiChat([
-        { role: "system", content: "You are a senior UX strategist." },
-        { role: "user", content: prompt }
-      ]);
-      aiText = aiText.replace(/```json/g, "").replace(/```/g, "").trim();
-      try {
-        const parsed = JSON.parse(aiText);
-        const allowedFields = [
-          "summary",
-          "problem_statement",
-          "ux_objectives",
-          "success_metrics",
-        ];
-        if (parsed.field && allowedFields.includes(parsed.field)) {
-          await supabase
-            .from("project_overview")
-            .update({ [parsed.field]: parsed.new_value })
-            .eq("project_id", projectId);
-          return NextResponse.json({
-            success: true,
-            type: "update",
-            message: `${parsed.field.replace(/_/g, " ")} updated successfully.`,
-            data: parsed
-          });
-        }
-      } catch {}
-      return NextResponse.json({
-        success: true,
-        type: "chat",
-        message: aiText
-      });
-    }
-    if (activeTab === "personas") {
-      const { data: personas } = await supabase
-        .from("project_personas")
-        .select("*")
-        .eq("project_id", projectId);
-      const prompt = `
-You are a UX strategist managing personas.
-Existing personas:
-${JSON.stringify(personas, null, 2)}
+
+    // ================= CONTEXT =================
+
+    const context = `
+You are a UX expert.
+
 Project:
 Name: ${project.name}
 Description: ${project.description}
-User request:
-${message}
-Rules:
-If generating a NEW persona return JSON array:
-[
-  {
-    "name": "",
-    "age": "",
-    "occupation": "",
-    "location": "",
-    "background": "",
-    "goals": "",
-    "pain_points": "",
-    "motivations": "",
-    "tech_usage": "",
-    "quote": ""
-  }
-]
-If updating an existing persona return:
-{
- "persona_name": "",
- "field": "",
- "new_value": ""
-}
-If the user is asking advice or explanation, respond normally.
+Users: ${project.target_users}
+Goal: ${project.goal}
+
+IMPORTANT:
+- ONLY talk about this project
+- DO NOT assume other domains
 `;
-      let aiText = await aiChat([
-        { role: "system", content: "Return JSON only when updating data." },
-        { role: "user", content: prompt }
+
+    // ================= CHECK: FIRST MESSAGE → GENERATE OVERVIEW =================
+
+    const isFirstGeneration = !messages || messages.length === 0;
+
+    if (isFirstGeneration) {
+      const aiText = await aiChat([
+        { role: "system", content: context },
+        {
+          role: "user",
+          content: `
+Generate a UX project overview:
+
+Summary:
+...
+
+Problem Statement:
+...
+
+UX Objectives:
+...
+
+Success Metrics:
+...
+`,
+        },
       ]);
-      aiText = aiText.replace(/```json/g, "").replace(/```/g, "").trim();
-      try {
-        const parsed = JSON.parse(aiText);
-        if (Array.isArray(parsed)) {
-          const insertData = parsed.map((p: Persona) => ({
-            project_id: projectId,
-            ...p
-          }));
-          await supabase.from("project_personas").insert(insertData);
-          return NextResponse.json({
-            success: true,
-            type: "update",
-            message: "New persona generated successfully.",
-            data: parsed
-          });
-        }
-        const update: PersonaUpdate = parsed;
-        if (update.persona_name && update.field && update.new_value) {
-          const { data: target } = await supabase
-            .from("project_personas")
-            .select("id")
-            .eq("project_id", projectId)
-            .ilike("name", `%${update.persona_name}%`)
-            .maybeSingle();
-          if (target) {
-            await supabase
-              .from("project_personas")
-              .update({ [update.field]: update.new_value })
-              .eq("id", target.id);
-            return NextResponse.json({
-              success: true,
-              type: "update",
-              message: `${update.persona_name}'s ${update.field.replace(/_/g," ")} updated.`,
-              data: update
-            });
-          }
-        }
-      } catch {}
+
+      const parsed = parseOverview(aiText || "");
+
+      await supabase.from("project_overview").upsert({
+        project_id: projectId,
+        ...parsed,
+      });
+
       return NextResponse.json({
         success: true,
-        type: "chat",
-        message: aiText
+        content: aiText,
       });
     }
+
+    // ================= CHAT MODE =================
+
+    const aiText = await aiChat([
+      { role: "system", content: context },
+      ...messages.slice(-5),
+    ]);
+
+    return NextResponse.json({
+      success: true,
+      content: aiText,
+    });
+
+  } catch (error) {
+    console.error("AI Error:", error);
+
     return NextResponse.json(
-      { success: false, error: "Invalid module" },
-      { status: 400 }
-    );
-  } catch (error: unknown) {
-    console.error("AI Chat Error:", error);
-    const message =
-      error instanceof Error ? error.message : "Server error";
-    return NextResponse.json(
-      { success: false, error: message },
+      { success: false, error: "Server error" },
       { status: 500 }
     );
   }

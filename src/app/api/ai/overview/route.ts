@@ -9,8 +9,6 @@ type OverviewPayload = {
   success_metrics: string;
 };
 
-
-
 const BASE_SYSTEM_PROMPT = `
 You are a UX expert assistant.
 
@@ -29,8 +27,6 @@ Avoid:
 Be clear, helpful, and conversational.
 `;
 
-
-
 function cleanResponse(text: string): string {
   if (!text) return "";
 
@@ -43,7 +39,6 @@ function cleanResponse(text: string): string {
 
   return cleaned.trim();
 }
-
 
 export async function POST(req: Request) {
   try {
@@ -66,6 +61,7 @@ export async function POST(req: Request) {
 
     const body: unknown = await req.json();
 
+    // ✅ FIXED VALIDATION
     if (
       typeof body !== "object" ||
       body === null ||
@@ -83,7 +79,19 @@ export async function POST(req: Request) {
       messages: ChatMessage[];
     };
 
-    if (!projectId || !messages || messages.length === 0) {
+    // ✅ STRONGER VALIDATION
+    if (
+      !projectId ||
+      !Array.isArray(messages) ||
+      messages.length === 0 ||
+      !messages.every(
+        (msg) =>
+          msg &&
+          typeof msg === "object" &&
+          typeof msg.role === "string" &&
+          typeof msg.content === "string"
+      )
+    ) {
       return NextResponse.json(
         { success: false, error: "Invalid input" },
         { status: 400 }
@@ -92,8 +100,6 @@ export async function POST(req: Request) {
 
     const latestMessage =
       messages[messages.length - 1]?.content?.toLowerCase() || "";
-
-    
 
     const { data: project } = await supabase
       .from("projects")
@@ -114,7 +120,6 @@ export async function POST(req: Request) {
       );
     }
 
-
     const isUpdate =
       /(modify|update|improve|change|edit|rewrite)/.test(latestMessage);
 
@@ -132,7 +137,7 @@ export async function POST(req: Request) {
     else if (latestMessage.includes("objective"))
       targetSection = "ux_objectives";
 
-
+    // 🔹 FULL GENERATION
     if (isFull || !overview) {
       const aiText = await aiChat([
         { role: "system", content: BASE_SYSTEM_PROMPT },
@@ -165,8 +170,7 @@ Write it like a case study. No JSON.
       });
     }
 
-  
-
+    // 🔹 UPDATE SECTION
     if (isUpdate && targetSection && overview) {
       const aiText = await aiChat([
         { role: "system", content: BASE_SYSTEM_PROMPT },
@@ -187,8 +191,7 @@ Write it like a case study. No JSON.
       });
     }
 
-  
-
+    // 🔹 NORMAL CHAT
     const chatMessages: ChatMessage[] = [
       {
         role: "system",
@@ -212,12 +215,10 @@ ${overview.summary}`
 }
 `,
       },
-
       ...messages.slice(-20),
     ];
 
     const aiText = await aiChat(chatMessages);
-
     const clean = cleanResponse(aiText);
 
     return NextResponse.json({

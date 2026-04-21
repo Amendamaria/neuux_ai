@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 type Props = {
   projectId: string;
@@ -56,8 +56,12 @@ export default function DesignSystemTab({ projectId }: Props) {
   const [chat, setChat] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
 
+  // ✅ SAFE ADDITIONS
+  const [isSending, setIsSending] = useState(false);
+  const chatEndRef = useRef<HTMLDivElement | null>(null);
+
   /* ============================= */
-  /* Fetch saved design system     */
+  /* Fetch Design System           */
   /* ============================= */
 
   useEffect(() => {
@@ -79,16 +83,12 @@ export default function DesignSystemTab({ projectId }: Props) {
 
     }
 
-    if (projectId) {
-      fetchSystem();
-    }
+    if (projectId) fetchSystem();
 
   }, [projectId]);
 
-
-
   /* ============================= */
-  /* Load Chat History             */
+  /* Fetch Chat History            */
   /* ============================= */
 
   useEffect(() => {
@@ -128,10 +128,16 @@ export default function DesignSystemTab({ projectId }: Props) {
 
   }, [projectId]);
 
+  /* ============================= */
+  /* ✅ AUTO SCROLL                */
+  /* ============================= */
 
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [chat]);
 
   /* ============================= */
-  /* Generate Design System        */
+  /* Generate System              */
   /* ============================= */
 
   async function generate() {
@@ -161,17 +167,17 @@ export default function DesignSystemTab({ projectId }: Props) {
     setLoading(false);
   }
 
-
-
   /* ============================= */
-  /* Chat Editing                  */
+  /* ✅ CHAT (ENHANCED ONLY)       */
   /* ============================= */
 
   async function send() {
 
-    if (!message.trim() || !system) return;
+    if (!message.trim() || !system || isSending) return;
 
     const userMsg = message;
+
+    setIsSending(true);
 
     setChat((c) => [...c, { role: "user", text: userMsg }]);
 
@@ -211,15 +217,18 @@ export default function DesignSystemTab({ projectId }: Props) {
 
       }
 
-    } catch (error) {
-      console.error("Design system chat failed", error);
+    } catch {
+      setChat((c) => [
+        ...c,
+        { role: "assistant", text: "Network error. Try again." }
+      ]);
     }
+
+    setIsSending(false);
   }
 
-
-
   /* ============================= */
-  /* Enter / Shift+Enter           */
+  /* Enter Key                    */
   /* ============================= */
 
   function handleKeyDown(
@@ -233,10 +242,8 @@ export default function DesignSystemTab({ projectId }: Props) {
 
   }
 
-
-
   /* ============================= */
-  /* Safe recursive renderer       */
+  /* Renderer                     */
   /* ============================= */
 
   function renderValue(value: unknown): React.ReactNode {
@@ -246,30 +253,24 @@ export default function DesignSystemTab({ projectId }: Props) {
     }
 
     if (typeof value === "object" && value !== null) {
-
       return Object.entries(value).map(([key, val]) => (
         <div key={key} className="text-sm">
           <span className="text-neutral-400">{key}:</span>{" "}
           {renderValue(val)}
         </div>
       ));
-
     }
 
     return null;
   }
 
-
-
   /* ============================= */
-  /* UI                            */
+  /* UI (UNCHANGED)               */
   /* ============================= */
 
   return (
 
     <div className="space-y-6">
-
-      {/* Header */}
 
       <div className="flex justify-between items-center">
 
@@ -286,71 +287,42 @@ export default function DesignSystemTab({ projectId }: Props) {
 
       </div>
 
-
-
-      {/* Design System */}
-
       {system && (
 
         <div className="grid md:grid-cols-2 gap-6">
 
-          {/* Colors */}
-
           <div className="border border-neutral-800 rounded-xl p-4 space-y-3">
-
             <h3 className="font-medium">Colors</h3>
-
             {(Object.entries(system.colors) as [keyof Colors, string][]).map(
               ([key, value]) => (
-
                 <div key={key} className="flex items-center gap-3">
-
                   <div
                     className="w-8 h-8 rounded"
                     style={{ background: value }}
                   />
-
                   <span className="text-sm">
                     {key} — {value}
                   </span>
-
                 </div>
-
               )
             )}
-
           </div>
 
-
-
-          {/* Typography */}
-
           <div className="border border-neutral-800 rounded-xl p-4 space-y-2">
-
             <h3 className="font-medium">Typography</h3>
-
             <div className="text-sm">
               Font Family: {system.typography.font_family}
             </div>
-
             <div className="text-sm">
               Headings: {renderValue(system.typography.headings)}
             </div>
-
             <div className="text-sm">
               Body: {renderValue(system.typography.body)}
             </div>
-
           </div>
 
-
-
-          {/* Spacing */}
-
           <div className="border border-neutral-800 rounded-xl p-4 space-y-2">
-
             <h3 className="font-medium">Spacing</h3>
-
             {(Object.entries(system.spacing) as [keyof Spacing, string][]).map(
               ([key, value]) => (
                 <p key={key} className="text-sm">
@@ -358,41 +330,24 @@ export default function DesignSystemTab({ projectId }: Props) {
                 </p>
               )
             )}
-
           </div>
 
-
-
-          {/* Components */}
-
           <div className="border border-neutral-800 rounded-xl p-4 space-y-2">
-
             <h3 className="font-medium">Components</h3>
-
             <ul className="list-disc list-inside text-sm">
-
               {system.components.map((component, i) => {
-
                 const label =
                   typeof component === "string"
                     ? component
                     : component?.name ?? "Component";
-
                 return <li key={i}>{label}</li>;
-
               })}
-
             </ul>
-
           </div>
 
         </div>
 
       )}
-
-
-
-      {/* Assistant Chat */}
 
       <div className="rounded-xl border border-neutral-800 overflow-hidden">
 
@@ -406,7 +361,6 @@ export default function DesignSystemTab({ projectId }: Props) {
         <div className="p-6 space-y-4 max-h-96 overflow-y-auto">
 
           {chat.map((m, i) => (
-
             <div
               key={i}
               className={`flex ${
@@ -415,7 +369,6 @@ export default function DesignSystemTab({ projectId }: Props) {
                   : "justify-start"
               }`}
             >
-
               <div
                 className={`max-w-[70%] px-4 py-3 rounded-xl text-sm ${
                   m.role === "user"
@@ -425,14 +378,19 @@ export default function DesignSystemTab({ projectId }: Props) {
               >
                 {m.text}
               </div>
-
             </div>
-
           ))}
 
+          {/* ✅ NEW */}
+          {isSending && (
+            <div className="text-sm text-neutral-400">
+              AI is thinking...
+            </div>
+          )}
+
+          <div ref={chatEndRef} />
+
         </div>
-
-
 
         <div className="border-t border-neutral-800 p-4 flex gap-3">
 
@@ -446,7 +404,8 @@ export default function DesignSystemTab({ projectId }: Props) {
 
           <button
             onClick={send}
-            className="px-6 py-2 bg-primary rounded-lg text-sm"
+            disabled={isSending}
+            className="px-6 py-2 bg-primary rounded-lg text-sm disabled:opacity-50"
           >
             Send
           </button>
@@ -458,5 +417,4 @@ export default function DesignSystemTab({ projectId }: Props) {
     </div>
 
   );
-
 }

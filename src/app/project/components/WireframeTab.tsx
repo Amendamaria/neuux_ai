@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 type Props = {
   projectId: string;
@@ -35,6 +35,10 @@ export default function WireframeTab({ projectId }: Props) {
   const [chat, setChat] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
 
+  // ✅ SAFE ADDITIONS
+  const [isSending, setIsSending] = useState(false);
+  const chatEndRef = useRef<HTMLDivElement | null>(null);
+
   /* ============================= */
   /* Fetch Saved Wireframes        */
   /* ============================= */
@@ -64,7 +68,6 @@ export default function WireframeTab({ projectId }: Props) {
     if (projectId) fetchWireframes();
 
   }, [projectId]);
-
 
   /* ============================= */
   /* Fetch Chat History            */
@@ -105,6 +108,13 @@ export default function WireframeTab({ projectId }: Props) {
 
   }, [projectId]);
 
+  /* ============================= */
+  /* ✅ AUTO SCROLL                */
+  /* ============================= */
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [chat]);
 
   /* ============================= */
   /* Generate Wireframes           */
@@ -137,16 +147,17 @@ export default function WireframeTab({ projectId }: Props) {
     setLoading(false);
   }
 
-
   /* ============================= */
-  /* Chat With AI                  */
+  /* ✅ CHAT (ONLY ENHANCED)       */
   /* ============================= */
 
   async function send() {
 
-    if (!message.trim() || !wireframes) return;
+    if (!message.trim() || !wireframes || isSending) return;
 
     const userMsg = message;
+
+    setIsSending(true);
 
     setChat((c) => [...c, { role: "user", text: userMsg }]);
 
@@ -186,12 +197,15 @@ export default function WireframeTab({ projectId }: Props) {
 
       }
 
-    } catch (error) {
-      console.error("Wireframe chat failed:", error);
+    } catch {
+      setChat((c) => [
+        ...c,
+        { role: "assistant", text: "Network error. Try again." }
+      ]);
     }
 
+    setIsSending(false);
   }
-
 
   /* ============================= */
   /* Enter Key Send                */
@@ -207,7 +221,6 @@ export default function WireframeTab({ projectId }: Props) {
     }
 
   }
-
 
   /* ============================= */
   /* Safe Section Renderer         */
@@ -227,16 +240,13 @@ export default function WireframeTab({ projectId }: Props) {
 
   }
 
-
   /* ============================= */
-  /* UI                            */
+  /* UI (UNCHANGED)                */
   /* ============================= */
 
   return (
 
     <div className="space-y-6">
-
-      {/* Header */}
 
       <div className="flex justify-between items-center">
 
@@ -252,9 +262,6 @@ export default function WireframeTab({ projectId }: Props) {
         </button>
 
       </div>
-
-
-      {/* Wireframe Screens */}
 
       {wireframes && Array.isArray(wireframes.screens) && (
 
@@ -294,9 +301,6 @@ export default function WireframeTab({ projectId }: Props) {
 
       )}
 
-
-      {/* Assistant Chat */}
-
       <div className="rounded-xl border border-neutral-800 overflow-hidden">
 
         <div className="px-4 py-3 border-b border-neutral-800 flex items-center gap-2">
@@ -335,6 +339,15 @@ export default function WireframeTab({ projectId }: Props) {
 
           ))}
 
+          {/* ✅ NEW */}
+          {isSending && (
+            <div className="text-sm text-neutral-400">
+              AI is thinking...
+            </div>
+          )}
+
+          <div ref={chatEndRef} />
+
         </div>
 
         <div className="border-t border-neutral-800 p-4 flex gap-3">
@@ -349,7 +362,8 @@ export default function WireframeTab({ projectId }: Props) {
 
           <button
             onClick={send}
-            className="px-6 py-2 bg-primary rounded-lg text-sm"
+            disabled={isSending}
+            className="px-6 py-2 bg-primary rounded-lg text-sm disabled:opacity-50"
           >
             Send
           </button>
@@ -361,5 +375,4 @@ export default function WireframeTab({ projectId }: Props) {
     </div>
 
   );
-
 }

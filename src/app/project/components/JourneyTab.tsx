@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type Props = {
   projectId: string;
@@ -30,6 +30,11 @@ type ChatMessage = {
   text: string;
 };
 
+type DBChatMessage = {
+  role: "user" | "assistant";
+  message: string;
+};
+
 export default function JourneyTab({ projectId }: Props) {
 
   const [personas, setPersonas] = useState<Persona[]>([]);
@@ -42,38 +47,34 @@ export default function JourneyTab({ projectId }: Props) {
   const [message, setMessage] = useState("");
 
   const [loading, setLoading] = useState(false);
+  const [isSending, setIsSending] = useState(false);
+
+  const chatEndRef = useRef<HTMLDivElement | null>(null);
 
   /* ========================= */
   /* Load Personas             */
   /* ========================= */
 
   useEffect(() => {
-
     async function loadPersonas() {
-
       try {
-
         const res = await fetch(`/api/personas?projectId=${projectId}`);
         const data = await res.json();
 
         if (data.success && data.data) {
-
           setPersonas(data.data);
 
           if (data.data.length > 0) {
             setSelectedPersona(data.data[0].id);
           }
-
         }
 
       } catch (error) {
         console.error("Failed to load personas", error);
       }
-
     }
 
     loadPersonas();
-
   }, [projectId]);
 
   /* ========================= */
@@ -81,13 +82,10 @@ export default function JourneyTab({ projectId }: Props) {
   /* ========================= */
 
   useEffect(() => {
-
     async function fetchJourney() {
-
       if (!selectedPersona) return;
 
       try {
-
         const res = await fetch(
           `/api/journey-map?projectId=${projectId}&personaId=${selectedPersona}`
         );
@@ -95,7 +93,6 @@ export default function JourneyTab({ projectId }: Props) {
         const data = await res.json();
 
         if (data.success && data.data) {
-
           setJourney(data.data);
 
           if (data.data.stages?.length > 0) {
@@ -109,64 +106,67 @@ export default function JourneyTab({ projectId }: Props) {
       } catch (error) {
         console.error("Failed to load journey map", error);
       }
-
     }
 
     fetchJourney();
-
   }, [projectId, selectedPersona]);
 
   /* ========================= */
-  /* Load Chat History         */
+  /* ✅ FINAL CHAT LOAD FIX     */
   /* ========================= */
 
   useEffect(() => {
+    if (!projectId || !selectedPersona) return;
+
+    let isMounted = true;
 
     async function loadChat() {
-
       try {
-
         const res = await fetch(
-          `/api/journey-map-chat?projectId=${projectId}`
+          `/api/ai/journey-map-chat?projectId=${projectId}&personaId=${selectedPersona}`
         );
 
-        const data = await res.json();
+        const data: { success: boolean; data: DBChatMessage[] } = await res.json();
 
-        if (data.success && data.data) {
-
-          const formatted = data.data.map(
-            (m: { role: "user" | "assistant"; message: string }) => ({
-              role: m.role,
-              text: m.message
-            })
+        if (isMounted && data.success) {
+          setChat(
+            data.data.map((msg) => ({
+              role: msg.role,
+              text: msg.message,
+            }))
           );
-
-          setChat(formatted);
-
         }
 
       } catch (error) {
-        console.error("Failed to load chat history", error);
+        console.error("Failed to load chat", error);
       }
-
     }
 
     loadChat();
 
-  }, [projectId]);
+    return () => {
+      isMounted = false;
+    };
+  }, [projectId, selectedPersona]);
+
+  /* ========================= */
+  /* Auto Scroll               */
+  /* ========================= */
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [chat]);
 
   /* ========================= */
   /* Generate Journey Map      */
   /* ========================= */
 
   async function generate() {
-
     if (!selectedPersona) return;
 
     setLoading(true);
 
     try {
-
       const res = await fetch("/api/ai/journey-map", {
         method: "POST",
         headers: {
@@ -181,13 +181,11 @@ export default function JourneyTab({ projectId }: Props) {
       const data = await res.json();
 
       if (data.success) {
-
         setJourney(data.data);
 
         if (data.data.stages?.length > 0) {
           setColumns(Object.keys(data.data.stages[0]));
         }
-
       }
 
     } catch (error) {
@@ -203,7 +201,9 @@ export default function JourneyTab({ projectId }: Props) {
 
   async function send() {
 
-    if (!message.trim() || !journey || !selectedPersona) return;
+    if (!message.trim() || !journey || !selectedPersona || isSending) return;
+
+    setIsSending(true);
 
     const userMsg = message;
 
@@ -249,42 +249,28 @@ export default function JourneyTab({ projectId }: Props) {
 
       }
 
-    } catch (error) {
-      console.error("Chat failed", error);
+    } catch {
+      setChat((c) => [
+        ...c,
+        { role: "assistant", text: "Network error. Try again." }
+      ]);
     }
 
+    setIsSending(false);
   }
 
-  /* ========================= */
-  /* Enter Send Logic          */
-  /* ========================= */
-
-  function handleKeyDown(
-    e: React.KeyboardEvent<HTMLTextAreaElement>
-  ) {
-
+  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       send();
     }
-
   }
 
-  /* ========================= */
-  /* UI                        */
-  /* ========================= */
-
   return (
-
     <div className="space-y-6">
 
-      {/* Header */}
-
       <div className="flex justify-between items-center">
-
-        <h2 className="text-lg font-semibold">
-          User Journey Map
-        </h2>
+        <h2 className="text-lg font-semibold">User Journey Map</h2>
 
         <button
           onClick={generate}
@@ -292,13 +278,9 @@ export default function JourneyTab({ projectId }: Props) {
         >
           {loading ? "Generating..." : "Generate Journey Map"}
         </button>
-
       </div>
 
-      {/* Persona Dropdown */}
-
       <div className="max-w-sm">
-
         <label className="text-sm text-neutral-400 mb-1 block">
           Select Persona
         </label>
@@ -308,97 +290,55 @@ export default function JourneyTab({ projectId }: Props) {
           onChange={(e) => setSelectedPersona(e.target.value)}
           className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-3 py-2 text-sm"
         >
-
           {personas.map((p) => (
             <option key={p.id} value={p.id}>
               {p.name}
             </option>
           ))}
-
         </select>
-
       </div>
 
-      {/* Journey Table */}
-
       {journey?.stages && (
-
         <div className="overflow-x-auto">
-
           <table className="w-full border border-neutral-800 text-sm">
-
             <thead>
-
               <tr className="bg-neutral-900">
-
                 {columns.map((col) => (
-                  <th
-                    key={col}
-                    className="p-3 border border-neutral-800 capitalize"
-                  >
+                  <th key={col} className="p-3 border border-neutral-800 capitalize">
                     {col}
                   </th>
                 ))}
-
               </tr>
-
             </thead>
 
             <tbody>
-
               {journey.stages.map((stage, i) => (
-
                 <tr key={i}>
-
                   {columns.map((col) => (
-
-                    <td
-                      key={col}
-                      className="p-3 border border-neutral-800"
-                    >
+                    <td key={col} className="p-3 border border-neutral-800">
                       {stage[col] ?? "-"}
                     </td>
-
                   ))}
-
                 </tr>
-
               ))}
-
             </tbody>
-
           </table>
-
         </div>
-
       )}
-
-      {/* Chat Assistant */}
 
       <div className="rounded-xl border border-neutral-800 overflow-hidden">
 
-        <div className="px-4 py-3 border-b border-neutral-800 flex items-center gap-2">
-
-          <span>💬</span>
-          <span className="font-medium">
-            Journey Assistant
-          </span>
-
+        <div className="px-4 py-3 border-b border-neutral-800">
+          💬 Journey Assistant
         </div>
 
         <div className="p-6 space-y-4 max-h-87.5 overflow-y-auto">
 
           {chat.map((m, i) => (
-
             <div
               key={i}
-              className={`flex ${
-                m.role === "user"
-                  ? "justify-end"
-                  : "justify-start"
-              }`}
+              className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
             >
-
               <div
                 className={`max-w-[70%] px-4 py-3 rounded-xl text-sm ${
                   m.role === "user"
@@ -408,11 +348,16 @@ export default function JourneyTab({ projectId }: Props) {
               >
                 {m.text}
               </div>
-
             </div>
-
           ))}
 
+          {isSending && (
+            <div className="text-sm text-neutral-400">
+              AI is thinking...
+            </div>
+          )}
+
+          <div ref={chatEndRef} />
         </div>
 
         <div className="border-t border-neutral-800 p-4 flex gap-3">
@@ -427,7 +372,8 @@ export default function JourneyTab({ projectId }: Props) {
 
           <button
             onClick={send}
-            className="px-6 py-2 bg-primary rounded-lg text-sm"
+            disabled={isSending}
+            className="px-6 py-2 bg-primary rounded-lg text-sm disabled:opacity-50"
           >
             Send
           </button>
@@ -437,7 +383,5 @@ export default function JourneyTab({ projectId }: Props) {
       </div>
 
     </div>
-
   );
-
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import ReactFlow, {
   Background,
   Controls,
@@ -44,6 +44,10 @@ export default function UserFlowTab({ projectId }: Props) {
   const [chat, setChat] = useState<ChatMessage[]>([]);
 
   const [loading, setLoading] = useState(false);
+
+  // ✅ NEW (SAFE ADDITIONS)
+  const [isSending, setIsSending] = useState(false);
+  const chatEndRef = useRef<HTMLDivElement | null>(null);
 
   /* ========================= */
   /* Convert AI Flow           */
@@ -91,13 +95,11 @@ export default function UserFlowTab({ projectId }: Props) {
 
         if (!data.success) return;
 
-        /* ===== Flow ===== */
         if (data.flow) {
           setFlow(data.flow);
           convertFlow(data.flow);
         }
 
-        /* ===== Chat ===== */
         if (Array.isArray(data.chat)) {
           const formatted = data.chat.map(
             (m: { role: "user" | "assistant"; message: string }) => ({
@@ -108,8 +110,8 @@ export default function UserFlowTab({ projectId }: Props) {
           setChat(formatted);
         }
 
-      } catch (err) {
-        console.error("Failed to load userflow data", err);
+      } catch {
+        console.error("Failed to load userflow data");
       }
 
     }
@@ -117,6 +119,14 @@ export default function UserFlowTab({ projectId }: Props) {
     if (projectId) fetchAll();
 
   }, [projectId]);
+
+  /* ========================= */
+  /* ✅ AUTO SCROLL (SAFE)      */
+  /* ========================= */
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [chat]);
 
   /* ========================= */
   /* Generate Flow             */
@@ -152,22 +162,24 @@ export default function UserFlowTab({ projectId }: Props) {
 
       }
 
-    } catch (err) {
-      console.error("Flow generation failed", err);
+    } catch {
+      console.error("Flow generation failed");
     }
 
     setLoading(false);
   }
 
   /* ========================= */
-  /* Chat                      */
+  /* ✅ CHAT (FIXED ONLY LOGIC) */
   /* ========================= */
 
   async function sendMessage() {
 
-    if (!message.trim() || !flow) return;
+    if (!message.trim() || !flow || isSending) return;
 
     const userMsg = message;
+
+    setIsSending(true);
 
     setChat((c) => [...c, { role: "user", text: userMsg }]);
     setMessage("");
@@ -209,10 +221,16 @@ export default function UserFlowTab({ projectId }: Props) {
 
       }
 
-    } catch (err) {
-      console.error("Chat failed", err);
+    } catch {
+
+      setChat((c) => [
+        ...c,
+        { role: "assistant", text: "Network error. Try again." },
+      ]);
+
     }
 
+    setIsSending(false);
   }
 
   /* ========================= */
@@ -231,14 +249,13 @@ export default function UserFlowTab({ projectId }: Props) {
   }
 
   /* ========================= */
-  /* UI                        */
+  /* UI (UNCHANGED)            */
   /* ========================= */
 
   return (
 
     <div className="space-y-6">
 
-      {/* Header */}
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold">
           UI User Flow
@@ -252,7 +269,6 @@ export default function UserFlowTab({ projectId }: Props) {
         </button>
       </div>
 
-      {/* Flow Diagram */}
       <div className="h-125 border border-neutral-800 rounded-xl overflow-hidden">
 
         {nodes.length === 0 ? (
@@ -269,7 +285,6 @@ export default function UserFlowTab({ projectId }: Props) {
 
       </div>
 
-      {/* Chat Assistant */}
       <div className="rounded-xl border border-neutral-800 overflow-hidden">
 
         <div className="px-4 py-3 border-b border-neutral-800 flex items-center gap-2">
@@ -302,6 +317,15 @@ export default function UserFlowTab({ projectId }: Props) {
             </div>
           ))}
 
+          {/* ✅ NEW (SAFE) */}
+          {isSending && (
+            <div className="text-sm text-neutral-400">
+              AI is thinking...
+            </div>
+          )}
+
+          <div ref={chatEndRef} />
+
         </div>
 
         <div className="border-t border-neutral-800 p-4 flex gap-3">
@@ -316,7 +340,8 @@ export default function UserFlowTab({ projectId }: Props) {
 
           <button
             onClick={sendMessage}
-            className="px-6 py-2 bg-primary rounded-lg text-sm"
+            disabled={isSending}
+            className="px-6 py-2 bg-primary rounded-lg text-sm disabled:opacity-50"
           >
             Send
           </button>

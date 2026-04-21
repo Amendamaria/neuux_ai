@@ -9,17 +9,9 @@ type Props = {
   onClose: () => void;
 };
 
-type Overview = {
-  summary: string;
-  problem_statement: string;
-  ux_objectives: string;
-  success_metrics: string[];
-};
-
-type AIResponse = {
+type AIChatResponse = {
   success: boolean;
-  type?: "full" | "partial";
-  updatedOverview?: Overview;
+  content?: string;
   error?: string;
 };
 
@@ -52,7 +44,7 @@ export default function NewProjectModal({ isOpen, onClose }: Props) {
         return;
       }
 
-      // ================= Insert Project =================
+      // ================= INSERT PROJECT =================
 
       const { data, error } = await supabase
         .from("projects")
@@ -76,42 +68,39 @@ export default function NewProjectModal({ isOpen, onClose }: Props) {
         return;
       }
 
-      // ================= Generate Overview =================
+      // ================= GENERATE OVERVIEW =================
 
-      const aiResponse = await fetch("/api/ai/overview", {
+      const aiResponse = await fetch("/api/ai/chat", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
           projectId: data.id,
-          feedback: "Generate full overview",
+          messages: [], // ✅ FIXED
         }),
       });
 
-      // 🔥 Read raw text first (important)
-      const rawText = await aiResponse.text();
-
-      let aiResult: AIResponse;
+      let aiResult: AIChatResponse;
 
       try {
-        aiResult = JSON.parse(rawText) as AIResponse;
-      } catch {
-  console.error("AI returned non-JSON:", rawText);
-  alert("AI returned unexpected response.");
-  setLoading(false);
-  router.push(`/project/${data.id}`);
-  return;
-}
+        aiResult = (await aiResponse.json()) as AIChatResponse;
+      } catch (e) {
+        console.error("JSON Parse Error:", e);
+        aiResult = {
+          success: false,
+          error: "Invalid AI response",
+        };
+      }
 
       console.log("AI Response:", aiResult);
 
-      if (!aiResponse.ok || aiResult.success === false) {
+      if (!aiResponse.ok || !aiResult || aiResult.success === false) {
         console.error("AI Generation Error:", aiResult);
 
         alert(
-          aiResult.error ||
-            "Project created, but AI generation failed."
+          aiResult?.error ||
+          "Project created, but AI generation failed."
         );
 
         setLoading(false);
@@ -119,7 +108,7 @@ export default function NewProjectModal({ isOpen, onClose }: Props) {
         return;
       }
 
-      // ================= Success =================
+      // ================= SUCCESS =================
 
       setLoading(false);
       onClose();

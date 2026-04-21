@@ -2,55 +2,96 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { aiChat } from "@/lib/ai";
 
-type Stage = {
-  name: string;
-  objectives: string;
-  needs: string;
-  feelings: string;
-  barriers: string;
-};
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
-type JourneyMap = {
-  stages: Stage[];
-};
+// =========================
+// GET (LOAD CHAT)
+// =========================
 
-export async function POST(req: Request) {
-
+export async function GET(req: Request) {
   try {
+    const { searchParams } = new URL(req.url);
 
-    const { projectId, personaId, message, journeyMap } = await req.json();
+    const projectId = searchParams.get("projectId");
+    const personaId = searchParams.get("personaId");
 
-    if (!projectId || !personaId || !message) {
+    if (!projectId) {
       return NextResponse.json(
-        { success: false, error: "Missing projectId or personaId" },
+        { success: false, error: "Missing projectId" },
         { status: 400 }
       );
     }
 
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
-
-    /* ========================= */
-    /* Save user message         */
-    /* ========================= */
-
-    await supabase
+    let query = supabase
       .from("project_ai_chats")
-      .insert({
-        project_id: projectId,
-        module: "journey-map",
-        role: "user",
-        message
-      });
+      .select("role,message")
+      .eq("project_id", projectId)
+      .eq("module", "journey-map")
+      .order("created_at", { ascending: true });
 
-    /* ========================= */
-    /* AI Prompt                 */
-    /* ========================= */
+    // ✅ Persona filtering
+    if (personaId) {
+      query = query.eq("persona_id", personaId);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      return NextResponse.json(
+        { success: false, error: error.message },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      data: data || []
+    });
+
+  } catch {
+    return NextResponse.json(
+      { success: false, error: "Failed to fetch chat" },
+      { status: 500 }
+    );
+  }
+}
+
+// =========================
+// POST (CHAT + UPDATE)
+// =========================
+
+export async function POST(req: Request) {
+  try {
+    const { projectId, personaId, message, journeyMap } = await req.json();
+
+    if (!projectId || !personaId || !message) {
+      return NextResponse.json(
+        { success: false, error: "Missing data" },
+        { status: 400 }
+      );
+    }
+
+    // =========================
+    // Save user message
+    // =========================
+
+    await supabase.from("project_ai_chats").insert({
+      project_id: projectId,
+      persona_id: personaId, // ✅ FIXED
+      module: "journey-map",
+      role: "user",
+      message
+    });
+
+    // =========================
+    // AI Prompt
+    // =========================
 
     const prompt = `
-You are a UX expert helping improve a user journey map.
+You are a UX expert.
 
 Current Journey Map:
 ${JSON.stringify(journeyMap, null, 2)}
@@ -59,47 +100,31 @@ User request:
 ${message}
 
 Rules:
-
-1. If the user asks to MODIFY the journey map, return ONLY this structure:
-
-{
- "update": true,
- "stages": [...]
-}
-
-2. Do NOT explain the JSON.
-3. Do NOT ask for confirmation.
-4. Do NOT include extra text.
-
-5. If the user asks for explanation, suggestion, or advice,
-   respond normally in plain text.
+- If modifying → return JSON:
+{ "update": true, "stages": [...] }
+- No explanation with JSON
+- Otherwise respond normally
 `;
 
     const aiTextRaw = await aiChat([
-      { role: "system", content: "You are a senior UX strategist." },
+      { role: "system", content: "You are a UX strategist." },
       { role: "user", content: prompt }
     ]);
 
-    const cleaned = aiTextRaw
-      .replace(/```json/g, "")
-      .replace(/```/g, "")
-      .trim();
+    const cleaned = aiTextRaw.replace(/```json|```/g, "").trim();
 
-    /* ========================= */
-    /* Try JSON update           */
-    /* ========================= */
+    // =========================
+    // Update mode
+    // =========================
 
     try {
-
       const parsed = JSON.parse(cleaned);
 
       if (parsed.update) {
 
-        const updated: JourneyMap = {
+        const updated = {
           stages: parsed.stages || []
         };
-
-        /* Save updated journey map */
 
         await supabase
           .from("project_journey_maps")
@@ -112,12 +137,11 @@ Rules:
             { onConflict: "project_id,persona_id" }
           );
 
-        /* Save assistant message (human readable) */
-
         const assistantMessage = "Journey map updated successfully.";
 
         await supabase.from("project_ai_chats").insert({
           project_id: projectId,
+          persona_id: personaId, // ✅ FIXED
           module: "journey-map",
           role: "assistant",
           message: assistantMessage
@@ -128,19 +152,19 @@ Rules:
           message: assistantMessage,
           data: updated
         });
-
       }
 
     } catch {
-      /* Not JSON → normal chat */
+      // ignore JSON error
     }
 
-    /* ========================= */
-    /* Save assistant response   */
-    /* ========================= */
+    // =========================
+    // Normal chat
+    // =========================
 
     await supabase.from("project_ai_chats").insert({
       project_id: projectId,
+      persona_id: personaId, // ✅ FIXED
       module: "journey-map",
       role: "assistant",
       message: cleaned
@@ -151,15 +175,10 @@ Rules:
       message: cleaned
     });
 
-  } catch (error) {
-
-    console.error("Journey chat error:", error);
-
+  } catch {
     return NextResponse.json(
       { success: false, error: "Chat failed" },
       { status: 500 }
     );
-
   }
-
 }

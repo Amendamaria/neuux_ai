@@ -10,8 +10,14 @@ type ChatMessage = {
 
 type Props = {
   projectId: string;
-  module: string; // "overview" | "personas" 
+  module: string;
   onUpdate?: () => void | Promise<void>;
+};
+
+type AIResponse = {
+  success: boolean;
+  content?: string;
+  error?: string;
 };
 
 export default function AiChat({ projectId, module, onUpdate }: Props) {
@@ -23,30 +29,28 @@ export default function AiChat({ projectId, module, onUpdate }: Props) {
 
   const chatEndRef = useRef<HTMLDivElement | null>(null);
 
-  // ================= FETCH CHAT HISTORY =================
+  // ================= FETCH CHAT =================
 
   useEffect(() => {
     const fetchChat = async () => {
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from("project_chat")
         .select("*")
         .eq("project_id", projectId)
         .eq("module", module)
         .order("created_at", { ascending: true });
 
-      if (!error && data) {
+      if (data) {
         setChat(
           data.map((msg) => ({
-            role: msg.role,
+            role: msg.role as "user" | "assistant",
             content: msg.content,
           }))
         );
       }
     };
 
-    if (projectId && module) {
-      fetchChat();
-    }
+    fetchChat();
   }, [projectId, module, supabase]);
 
   // ================= AUTO SCROLL =================
@@ -64,6 +68,14 @@ export default function AiChat({ projectId, module, onUpdate }: Props) {
     setInput("");
     setIsSending(true);
 
+    const userMessage: ChatMessage = {
+      role: "user",
+      content: trimmed,
+    };
+
+    const updatedChat = [...chat, userMessage];
+    setChat(updatedChat);
+
     // Save user message
     await supabase.from("project_chat").insert({
       project_id: projectId,
@@ -72,25 +84,37 @@ export default function AiChat({ projectId, module, onUpdate }: Props) {
       content: trimmed,
     });
 
-    setChat((prev) => [...prev, { role: "user", content: trimmed }]);
-
     try {
-      const response = await fetch("/api/ai/chat", {
+      // ✅ IMPORTANT: Dynamic API selection
+      const apiUrl =
+        module === "personas"
+          ? "/api/ai/persona"
+          : "/api/ai/chat";
+
+      const response = await fetch(apiUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
           projectId,
-          activeTab: module,
-          message: trimmed,
+          messages: updatedChat.slice(-5), // keep last 5 messages
         }),
       });
 
-      const result = await response.json();
+      let result: AIResponse;
+
+      try {
+        result = (await response.json()) as AIResponse;
+      } catch {
+        result = {
+          success: false,
+          error: "Invalid AI response",
+        };
+      }
 
       const assistantMessage = result.success
-        ? result.message
+        ? result.content || "No response generated."
         : result.error || "Something went wrong.";
 
       // Save assistant message
@@ -106,17 +130,17 @@ export default function AiChat({ projectId, module, onUpdate }: Props) {
         { role: "assistant", content: assistantMessage },
       ]);
 
-      // 🔥 Refresh parent component (OverviewTab)
       if (result.success && onUpdate) {
         await onUpdate();
       }
 
     } catch {
-      const errorMessage = "Network error. Please try again.";
-
       setChat((prev) => [
         ...prev,
-        { role: "assistant", content: errorMessage },
+        {
+          role: "assistant",
+          content: "Network error. Please try again.",
+        },
       ]);
     }
 
@@ -125,22 +149,19 @@ export default function AiChat({ projectId, module, onUpdate }: Props) {
 
   return (
     <div className="mt-8 border border-neutral-800 rounded-2xl bg-neutral-900">
-      {/* Header */}
+
       <div className="px-6 py-4 border-b border-neutral-800">
         <h3 className="text-sm font-semibold">
           💬 {module.charAt(0).toUpperCase() + module.slice(1)} Assistant
         </h3>
       </div>
 
-      {/* Messages */}
       <div className="max-h-72 overflow-y-auto p-6 space-y-4">
         {chat.map((msg, index) => (
           <div
             key={index}
             className={`flex ${
-              msg.role === "user"
-                ? "justify-end"
-                : "justify-start"
+              msg.role === "user" ? "justify-end" : "justify-start"
             }`}
           >
             <div
@@ -164,7 +185,6 @@ export default function AiChat({ projectId, module, onUpdate }: Props) {
         <div ref={chatEndRef} />
       </div>
 
-      {/* Input */}
       <div className="border-t border-neutral-800 p-4 flex gap-3">
         <textarea
           value={input}
