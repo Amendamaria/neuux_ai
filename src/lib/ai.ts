@@ -1,5 +1,3 @@
-/* src/lib/ai.ts */
-
 export type ChatMessage = {
   role: "system" | "user" | "assistant";
   content: string;
@@ -23,7 +21,6 @@ export async function aiChat(messages: ChatMessage[]): Promise<string> {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          // 🔥 IMPORTANT: no system injection here
           messages,
           max_tokens: 1500,
           temperature: 0.7,

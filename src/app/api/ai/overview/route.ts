@@ -9,7 +9,7 @@ type OverviewPayload = {
   success_metrics: string;
 };
 
-/* ================= SYSTEM PROMPT ================= */
+
 
 const BASE_SYSTEM_PROMPT = `
 You are a UX expert assistant.
@@ -29,7 +29,7 @@ Avoid:
 Be clear, helpful, and conversational.
 `;
 
-/* ================= CLEAN RESPONSE ================= */
+
 
 function cleanResponse(text: string): string {
   if (!text) return "";
@@ -44,7 +44,6 @@ function cleanResponse(text: string): string {
   return cleaned.trim();
 }
 
-/* ================= MAIN ================= */
 
 export async function POST(req: Request) {
   try {
@@ -94,7 +93,7 @@ export async function POST(req: Request) {
     const latestMessage =
       messages[messages.length - 1]?.content?.toLowerCase() || "";
 
-    /* ================= FETCH ================= */
+    
 
     const { data: project } = await supabase
       .from("projects")
@@ -115,7 +114,6 @@ export async function POST(req: Request) {
       );
     }
 
-    /* ================= INTENT (KEEP EXISTING FEATURE) ================= */
 
     const isUpdate =
       /(modify|update|improve|change|edit|rewrite)/.test(latestMessage);
@@ -134,7 +132,6 @@ export async function POST(req: Request) {
     else if (latestMessage.includes("objective"))
       targetSection = "ux_objectives";
 
-    /* ================= FULL GENERATION ================= */
 
     if (isFull || !overview) {
       const aiText = await aiChat([
@@ -168,7 +165,7 @@ Write it like a case study. No JSON.
       });
     }
 
-    /* ================= UPDATE SECTION ================= */
+  
 
     if (isUpdate && targetSection && overview) {
       const aiText = await aiChat([
@@ -190,7 +187,7 @@ Write it like a case study. No JSON.
       });
     }
 
-    /* ================= CHAT (FIXED FLOW) ================= */
+  
 
     const chatMessages: ChatMessage[] = [
       {
@@ -216,7 +213,6 @@ ${overview.summary}`
 `,
       },
 
-      // 🔥 THIS is the key — full conversation
       ...messages.slice(-20),
     ];
 

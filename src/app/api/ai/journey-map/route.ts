@@ -14,9 +14,7 @@ type JourneyData = {
   stages: JourneyStage[];
 };
 
-/* ================================================= */
-/* GET → Load Saved Journey                          */
-/* ================================================= */
+
 
 export async function GET(req: Request) {
 
@@ -60,9 +58,7 @@ export async function GET(req: Request) {
 
 }
 
-/* ================================================= */
-/* POST → Generate Journey Map                       */
-/* ================================================= */
+
 
 export async function POST(req: Request) {
 
@@ -94,9 +90,6 @@ export async function POST(req: Request) {
       SUPABASE_SERVICE_ROLE_KEY
     );
 
-    /* ========================= */
-    /* Fetch Overview + Persona  */
-    /* ========================= */
 
     const { data: overview } = await supabase
       .from("project_overview")
@@ -117,10 +110,7 @@ export async function POST(req: Request) {
       );
     }
 
-    /* ========================= */
-    /* AI Prompt                 */
-    /* ========================= */
-
+  
     const prompt = `
 You are a senior UX strategist.
 
@@ -154,9 +144,6 @@ Return STRICT JSON only:
 }
 `;
 
-    /* ========================= */
-    /* AI Generation             */
-    /* ========================= */
 
     const aiTextRaw = await aiChat([
       {
@@ -170,9 +157,7 @@ Return STRICT JSON only:
       }
     ]);
 
-    /* ========================= */
-    /* Clean AI Response         */
-    /* ========================= */
+
 
     const cleaned = aiTextRaw
       .replace(/```json/g, "")
@@ -204,9 +189,6 @@ Return STRICT JSON only:
 
     }
 
-    /* ========================= */
-    /* Validate Structure        */
-    /* ========================= */
 
     if (!parsed.stages || !Array.isArray(parsed.stages)) {
       throw new Error("Invalid journey structure");
@@ -222,9 +204,7 @@ Return STRICT JSON only:
       }))
     };
 
-    /* ========================= */
-    /* Save Journey Map          */
-    /* ========================= */
+
 
     const { error: dbError } = await supabase
       .from("project_journey_maps")
@@ -245,9 +225,7 @@ Return STRICT JSON only:
 
     }
 
-    /* ========================= */
-    /* Save AI Chat              */
-    /* ========================= */
+
 
     await supabase
       .from("project_ai_chats")
@@ -260,9 +238,7 @@ Return STRICT JSON only:
         }
       ]);
 
-    /* ========================= */
-    /* Return Result             */
-    /* ========================= */
+
 
     return NextResponse.json({
       success: true,

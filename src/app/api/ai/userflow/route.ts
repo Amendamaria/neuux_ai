@@ -20,9 +20,7 @@ type FlowData = {
 export async function POST(req: Request) {
   try {
 
-    /* ========================= */
-    /* Get request body          */
-    /* ========================= */
+
 
     const body = await req.json();
     const projectId = body.projectId;
@@ -34,19 +32,13 @@ export async function POST(req: Request) {
       );
     }
 
-    /* ========================= */
-    /* Supabase client           */
-    /* ========================= */
 
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
 
-    /* ========================= */
-    /* Fetch project info        */
-    /* ========================= */
-
+    
     const { data: project, error: projectError } = await supabase
       .from("projects")
       .select("*")
@@ -65,9 +57,6 @@ export async function POST(req: Request) {
       );
     }
 
-    /* ========================= */
-    /* AI Prompt                 */
-    /* ========================= */
 
     const prompt = `
 Generate a simple product user flow.
@@ -93,9 +82,6 @@ Target Users: ${project.target_users || ""}
 Goal: ${project.goal || ""}
 `;
 
-    /* ========================= */
-    /* AI Generation             */
-    /* ========================= */
 
     const aiTextRaw = await aiChat([
       { role: "system", content: "Return valid JSON only." },
@@ -104,9 +90,7 @@ Goal: ${project.goal || ""}
 
     console.log("AI RAW RESPONSE:", aiTextRaw);
 
-    /* ========================= */
-    /* Clean AI response         */
-    /* ========================= */
+    
 
     const cleaned = aiTextRaw
       .replace(/```json/g, "")
@@ -131,9 +115,6 @@ Goal: ${project.goal || ""}
   throw new Error("AI returned invalid JSON");
 }
 
-    /* ========================= */
-    /* Save flow to database     */
-    /* ========================= */
 
     const { error: dbError } = await supabase
       .from("project_user_flows")
@@ -150,9 +131,6 @@ Goal: ${project.goal || ""}
       throw dbError;
     }
 
-    /* ========================= */
-    /* Save AI chat log          */
-    /* ========================= */
 
     await supabase.from("project_ai_chats").insert({
       project_id: projectId,
@@ -160,10 +138,6 @@ Goal: ${project.goal || ""}
       role: "assistant",
       message: JSON.stringify(parsed)
     });
-
-    /* ========================= */
-    /* Return response           */
-    /* ========================= */
 
     return NextResponse.json({
       success: true,

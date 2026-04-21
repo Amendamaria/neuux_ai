@@ -17,7 +17,6 @@ type PersonaPayload = {
 
 export async function POST(req: Request) {
   try {
-
     const { projectId } = await req.json();
 
     const {
@@ -36,8 +35,6 @@ export async function POST(req: Request) {
       NEXT_PUBLIC_SUPABASE_URL!,
       SUPABASE_SERVICE_ROLE_KEY!
     );
-
-    /* Fetch project */
 
     const { data: project, error: projectError } = await supabase
       .from("projects")
@@ -58,18 +55,18 @@ Generate 2 realistic UX personas.
 Return ONLY JSON array.
 
 [
-{
-"name":"",
-"age":"",
-"occupation":"",
-"location":"",
-"background":"",
-"goals":"",
-"pain_points":"",
-"motivations":"",
-"tech_usage":"",
-"quote":""
-}
+  {
+    "name": "",
+    "age": "",
+    "occupation": "",
+    "location": "",
+    "background": "",
+    "goals": "",
+    "pain_points": "",
+    "motivations": "",
+    "tech_usage": "",
+    "quote": ""
+  }
 ]
 
 Project:
@@ -82,7 +79,15 @@ Goal: ${project.goal}
     const aiTextRaw = await aiChat([
       {
         role: "system",
-        content: "You are a senior UX strategist. Return JSON only.",
+        content: `
+You are a senior UX strategist.
+
+- Create realistic personas
+- No explanation
+- No extra text
+
+Return ONLY valid JSON.
+        `,
       },
       {
         role: "user",
@@ -95,9 +100,25 @@ Goal: ${project.goal}
       .replace(/```/g, "")
       .trim();
 
-    const parsed: PersonaPayload[] = JSON.parse(aiText);
+    let parsed: PersonaPayload[] = [];
 
-    /* Delete old personas */
+    try {
+      parsed = JSON.parse(aiText);
+    } catch {
+      console.error("AI JSON parsing failed:", aiText);
+
+      return NextResponse.json(
+        { success: false, error: "Invalid AI response format" },
+        { status: 500 }
+      );
+    }
+
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+      return NextResponse.json(
+        { success: false, error: "No personas generated" },
+        { status: 500 }
+      );
+    }
 
     await supabase
       .from("project_personas")
@@ -106,19 +127,28 @@ Goal: ${project.goal}
 
     const insertData = parsed.map((p) => ({
       project_id: projectId,
-      name: p.name,
-      age: p.age,
-      occupation: p.occupation,
-      location: p.location,
-      background: p.background,
-      goals: p.goals,
-      pain_points: p.pain_points,
-      motivations: p.motivations,
-      tech_usage: p.tech_usage,
-      quote: p.quote,
+      name: p.name || "",
+      age: p.age || "",
+      occupation: p.occupation || "",
+      location: p.location || "",
+      background: p.background || "",
+      goals: p.goals || "",
+      pain_points: p.pain_points || "",
+      motivations: p.motivations || "",
+      tech_usage: p.tech_usage || "",
+      quote: p.quote || "",
     }));
 
-    await supabase.from("project_personas").insert(insertData);
+    const { error: insertError } = await supabase
+      .from("project_personas")
+      .insert(insertData);
+
+    if (insertError) {
+      return NextResponse.json(
+        { success: false, error: "Failed to save personas" },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({
       success: true,
@@ -126,7 +156,6 @@ Goal: ${project.goal}
     });
 
   } catch (error) {
-
     console.error(error);
 
     return NextResponse.json(
